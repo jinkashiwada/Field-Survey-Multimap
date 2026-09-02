@@ -2,6 +2,7 @@ import type { MapLayout } from '../domain/layout';
 import type { ElevationColorRange, PaneLayerState } from '../domain/layers';
 import type { PresetDefinition } from '../config/presets';
 import { layerById } from '../config/layers';
+import { createDefaultPaneLayerState } from '../config/paneDefaults';
 
 export interface AppState {
   layout: MapLayout;
@@ -23,13 +24,7 @@ export type AppAction =
 export const initialAppState: AppState = {
   layout: 'split-vertical',
   notice: null,
-  panes: Array.from({ length: 4 }, (_, index) => ({
-    baseLayerId: index === 1 ? 'gsi-seamlessphoto' : 'gsi-std',
-    overlayLayerIds: [],
-    opacityByLayerId: { [index === 1 ? 'gsi-seamlessphoto' : 'gsi-std']: 1 },
-    elevationColorRange: { minimum: 0, maximum: 20 },
-    autoElevationRange: false,
-  })),
+  panes: Array.from({ length: 4 }, (_, index) => createDefaultPaneLayerState(index)),
 };
 
 function updatePane(state: AppState, paneIndex: number, update: (pane: PaneLayerState) => PaneLayerState): AppState {

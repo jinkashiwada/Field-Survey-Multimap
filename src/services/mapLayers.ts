@@ -73,7 +73,7 @@ export function vectorTileStyle(kind: VectorLayerKind, feature: FeatureLike, res
     if (layer === 'river') {
       const code = Number(feature.get('ftCode'));
       if (code === 55_301) return largeRiverStyle;
-      if (code === 55_302) return zoom >= 7 ? mediumRiverStyle : undefined;
+      if (code === 55_302) return zoom >= 6 ? mediumRiverStyle : undefined;
       return riverStyle;
     }
     if (layer === 'label' && Number(feature.get('annoCtg')) === 322) {

@@ -1,6 +1,6 @@
 import type { MapLayout } from '../domain/layout';
 import type { PaneLayerState } from '../domain/layers';
-import { layerById } from './layers';
+import { createPaneLayerState } from './paneDefaults';
 
 export interface PresetDefinition {
   id: string;
@@ -11,14 +11,7 @@ export interface PresetDefinition {
 }
 
 function pane(baseLayerId: string, overlayLayerIds: string[] = []): PaneLayerState {
-  const ids = [baseLayerId, ...overlayLayerIds];
-  return {
-    baseLayerId,
-    overlayLayerIds,
-    opacityByLayerId: Object.fromEntries(ids.map((id) => [id, layerById.get(id)?.defaultOpacity ?? 1])),
-    elevationColorRange: { minimum: 0, maximum: 20 },
-    autoElevationRange: false,
-  };
+  return createPaneLayerState(baseLayerId, overlayLayerIds);
 }
 
 export const presetRegistry: readonly PresetDefinition[] = [

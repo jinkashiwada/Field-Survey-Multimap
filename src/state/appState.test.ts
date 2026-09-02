@@ -1,12 +1,20 @@
 import { describe, expect, it } from 'vitest';
+import { DEFAULT_REFERENCE_OVERLAY_IDS } from '../config/paneDefaults';
 import { presetRegistry } from '../config/presets';
 import { appReducer, initialAppState } from './appState';
 
 describe('application reducer', () => {
   it('changes pane layers independently', () => {
     const state = appReducer(initialAppState, { type: 'toggle-overlay', paneIndex: 1, layerId: 'hazard-flood-l2' });
-    expect(state.panes[0]?.overlayLayerIds).toEqual([]);
-    expect(state.panes[1]?.overlayLayerIds).toEqual(['hazard-flood-l2']);
+    expect(state.panes[0]?.overlayLayerIds).toEqual([...DEFAULT_REFERENCE_OVERLAY_IDS]);
+    expect(state.panes[1]?.overlayLayerIds).toEqual([...DEFAULT_REFERENCE_OVERLAY_IDS, 'hazard-flood-l2']);
+  });
+
+  it('prepares reference overlays for panes revealed by a larger layout', () => {
+    expect(initialAppState.panes).toHaveLength(4);
+    for (const pane of initialAppState.panes) {
+      expect(pane.overlayLayerIds).toEqual([...DEFAULT_REFERENCE_OVERLAY_IDS]);
+    }
   });
 
   it('applies the two-pane mobile form of a quad preset', () => {

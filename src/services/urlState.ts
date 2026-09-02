@@ -1,4 +1,5 @@
 import { layerById } from '../config/layers';
+import { createDefaultPaneLayerState } from '../config/paneDefaults';
 import type { MapLayout } from '../domain/layout';
 import type { PaneLayerState } from '../domain/layers';
 import type { UrlMapState } from '../domain/urlState';
@@ -7,16 +8,7 @@ const LAYOUTS = new Set<MapLayout>(['single', 'split-horizontal', 'split-vertica
 const VERSION = '1';
 
 function defaultPanes(): PaneLayerState[] {
-  return Array.from({ length: 4 }, (_, index) => {
-    const baseLayerId = index === 1 ? 'gsi-seamlessphoto' : 'gsi-std';
-    return {
-      baseLayerId,
-      overlayLayerIds: [],
-      opacityByLayerId: { [baseLayerId]: 1 },
-      elevationColorRange: { minimum: 0, maximum: 20 },
-      autoElevationRange: false,
-    };
-  });
+  return Array.from({ length: 4 }, (_, index) => createDefaultPaneLayerState(index));
 }
 
 export function defaultUrlState(): UrlMapState {

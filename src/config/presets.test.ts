@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { DEFAULT_REFERENCE_OVERLAY_IDS } from './paneDefaults';
 import { presetRegistry } from './presets';
 
 describe('preset registry', () => {
@@ -7,6 +8,10 @@ describe('preset registry', () => {
       '現地概況', '地形と浸水', '標高と浸水', '微地形確認', '痕跡調査総覧',
     ]);
     expect(presetRegistry.find((preset) => preset.id === 'survey-overview')?.panes).toHaveLength(4);
+    for (const preset of presetRegistry) {
+      for (const pane of preset.panes) {
+        expect(pane.overlayLayerIds).toEqual(expect.arrayContaining([...DEFAULT_REFERENCE_OVERLAY_IDS]));
+      }
+    }
   });
 });
-

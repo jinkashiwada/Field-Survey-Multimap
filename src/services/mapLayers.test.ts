@@ -15,14 +15,14 @@ function riverFeature(code: number): Feature {
 }
 
 describe('river vector-tile style', () => {
-  it('shows only large generalized rivers at very small zooms', () => {
+  it('shows only large generalized rivers below the visible layer range', () => {
     expect(vectorTileStyle('river', riverFeature(55_301), resolutionAtZoom(5))).toBeDefined();
     expect(vectorTileStyle('river', riverFeature(55_302), resolutionAtZoom(5))).toBeUndefined();
   });
 
-  it('adds medium generalized rivers from zoom 7', () => {
-    expect(vectorTileStyle('river', riverFeature(55_302), resolutionAtZoom(6))).toBeUndefined();
-    expect(vectorTileStyle('river', riverFeature(55_302), resolutionAtZoom(7))).toBeDefined();
+  it('adds medium and detailed river lines from zoom 6', () => {
+    expect(vectorTileStyle('river', riverFeature(55_302), resolutionAtZoom(6))).toBeDefined();
+    expect(vectorTileStyle('river', riverFeature(5_201), resolutionAtZoom(6))).toBeDefined();
   });
 
   it('keeps detailed river features visible at field-survey zooms', () => {

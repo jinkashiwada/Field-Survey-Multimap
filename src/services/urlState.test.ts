@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest';
+import { DEFAULT_REFERENCE_OVERLAY_IDS } from '../config/paneDefaults';
 import { defaultUrlState, parseUrlState, serializeUrlState } from './urlState';
 
 describe('URL state codec', () => {
+  it('enables the four reference overlays in every default pane', () => {
+    for (const pane of defaultUrlState().panes) {
+      expect(pane.overlayLayerIds).toEqual([...DEFAULT_REFERENCE_OVERLAY_IDS]);
+    }
+  });
+
   it('serializes and parses map state', () => {
     const state = defaultUrlState();
     state.longitude = 140.1234567;
@@ -10,7 +17,7 @@ describe('URL state codec', () => {
     state.rotation = 0.25;
     state.layout = 'quad';
     state.panes[0]!.overlayLayerIds = ['hazard-flood-l2'];
-    state.panes[0]!.opacityByLayerId['hazard-flood-l2'] = 0.65;
+    state.panes[0]!.opacityByLayerId = { 'gsi-std': 1, 'hazard-flood-l2': 0.65 };
     expect(parseUrlState(serializeUrlState(state))).toEqual({
       ...state,
       longitude: 140.123457,
