@@ -1,6 +1,7 @@
 import type { FeatureLike } from 'ol/Feature';
 import MVT from 'ol/format/MVT';
 import type BaseLayer from 'ol/layer/Base';
+import LayerGroup from 'ol/layer/Group';
 import TileLayer from 'ol/layer/Tile';
 import VectorTileLayer from 'ol/layer/VectorTile';
 import ImageTile from 'ol/source/ImageTile';
@@ -12,6 +13,7 @@ import type { ElevationColorRange, LayerDefinition, VectorLayerKind } from '../d
 
 const xyzSourceCache = new Map<string, XYZ>();
 const vectorTileSourceCache = new Map<string, VectorTileSource>();
+const riverGuideSourceCache = new Map<string, VectorTileSource>();
 const demImageSourceCache = new Map<string, ImageTile>();
 
 const majorRoadStyle = new Style({ stroke: new Stroke({ color: '#dd3b2a', width: 2.4 }) });
@@ -21,6 +23,14 @@ const riverStyle = [
   new Style({ stroke: new Stroke({ color: 'rgba(255,255,255,0.92)', width: 4.8 }) }),
   new Style({ stroke: new Stroke({ color: '#0878be', width: 2.8 }) }),
 ];
+const riverMediumScaleStyle = [
+  new Style({ stroke: new Stroke({ color: 'rgba(255,255,255,0.84)', width: 3.2 }) }),
+  new Style({ stroke: new Stroke({ color: 'rgba(8,120,190,0.82)', width: 1.8 }) }),
+];
+const riverSmallScaleStyle = [
+  new Style({ stroke: new Stroke({ color: 'rgba(255,255,255,0.7)', width: 2.1 }) }),
+  new Style({ stroke: new Stroke({ color: 'rgba(8,120,190,0.62)', width: 1.05 }) }),
+];
 const largeRiverStyle = [
   new Style({ stroke: new Stroke({ color: 'rgba(255,255,255,0.95)', width: 5.6 }) }),
   new Style({ stroke: new Stroke({ color: '#075d9a', width: 3.6 }) }),
@@ -29,6 +39,23 @@ const mediumRiverStyle = [
   new Style({ stroke: new Stroke({ color: 'rgba(255,255,255,0.92)', width: 4.8 }) }),
   new Style({ stroke: new Stroke({ color: '#0878be', width: 2.8 }) }),
 ];
+const smallRiverStyle = [
+  new Style({ stroke: new Stroke({ color: 'rgba(255,255,255,0.86)', width: 3.8 }) }),
+  new Style({ stroke: new Stroke({ color: '#3194c9', width: 1.9 }) }),
+];
+const tinyRiverStyle = new Style({ stroke: new Stroke({ color: '#60add4', width: 1.15 }) });
+const largeRiverGuideStyle = [
+  new Style({ stroke: new Stroke({ color: 'rgba(255,255,255,0.82)', width: 4.2 }) }),
+  new Style({ stroke: new Stroke({ color: 'rgba(0,91,164,0.82)', width: 2.4, lineDash: [8, 5] }) }),
+];
+const mediumRiverGuideStyle = [
+  new Style({ stroke: new Stroke({ color: 'rgba(255,255,255,0.75)', width: 3.4 }) }),
+  new Style({ stroke: new Stroke({ color: 'rgba(8,120,190,0.74)', width: 1.8, lineDash: [7, 5] }) }),
+];
+const waterAreaStyle = new Style({
+  fill: new Fill({ color: 'rgba(38,151,210,0.14)' }),
+  stroke: new Stroke({ color: 'rgba(8,120,190,0.58)', width: 1.1 }),
+});
 const contourStyle = new Style({ stroke: new Stroke({ color: '#8a5f26', width: 0.85 }) });
 const indexContourStyle = new Style({ stroke: new Stroke({ color: '#704315', width: 1.45 }) });
 const auxiliaryContourStyle = new Style({ stroke: new Stroke({ color: '#9a7545', width: 0.75, lineDash: [8, 5] }) });
@@ -70,15 +97,18 @@ export function vectorTileStyle(kind: VectorLayerKind, feature: FeatureLike, res
   if (kind === 'railway') return layer === 'railway' ? railwayStyle : undefined;
   if (kind === 'river') {
     const zoom = zoomFromResolution(resolution);
+    if (layer === 'waterarea') {
+      const code = Number(feature.get('ftCode'));
+      return code === 5_000 || code === 55_000 ? waterAreaStyle : undefined;
+    }
     if (layer === 'river') {
       const code = Number(feature.get('ftCode'));
-      if (code === 55_301) return largeRiverStyle;
-      if (code === 55_302) return zoom >= 6 ? mediumRiverStyle : undefined;
-      return riverStyle;
+      if (code >= 55_301 && code <= 55_304) return undefined;
+      return zoom < 11 ? riverSmallScaleStyle : zoom < 14 ? riverMediumScaleStyle : riverStyle;
     }
     if (layer === 'label' && Number(feature.get('annoCtg')) === 322) {
       const label = String(feature.get('knj') ?? '').trim();
-      return label && zoom >= 6 ? textStyle(riverLabelStyles, label, '#174aa3') : undefined;
+      return label && zoom >= 12 ? textStyle(riverLabelStyles, label, '#174aa3') : undefined;
     }
     return undefined;
   }
@@ -91,6 +121,25 @@ export function vectorTileStyle(kind: VectorLayerKind, feature: FeatureLike, res
   if (code !== 7351 && code !== 7353) return undefined;
   const flag = Number(feature.get('altiFlag'));
   return flag === 0 ? indexContourStyle : flag === 2 ? auxiliaryContourStyle : contourStyle;
+}
+
+export function riverGuideStyle(feature: FeatureLike, resolution = 0): Style | Style[] | undefined {
+  const layer = sourceLayer(feature);
+  const zoom = zoomFromResolution(resolution);
+  if (layer === 'river') {
+    const code = Number(feature.get('ftCode'));
+    if (code === 55_301) return zoom < 8 ? largeRiverStyle : largeRiverGuideStyle;
+    if (code === 55_302) return zoom < 8 ? mediumRiverStyle : mediumRiverGuideStyle;
+    if (zoom >= 8) return undefined;
+    if (code === 55_303) return smallRiverStyle;
+    if (code === 55_304) return tinyRiverStyle;
+    return undefined;
+  }
+  if (layer === 'label' && Number(feature.get('annoCtg')) === 322) {
+    const label = String(feature.get('knj') ?? '').trim();
+    return label ? textStyle(riverLabelStyles, label, '#174aa3') : undefined;
+  }
+  return undefined;
 }
 
 export function getSharedXyzSource(definition: LayerDefinition): XYZ {
@@ -121,6 +170,21 @@ function getSharedVectorTileSource(definition: LayerDefinition): VectorTileSourc
     transition: 100,
   });
   vectorTileSourceCache.set(key, source);
+  return source;
+}
+
+function getSharedRiverGuideSource(definition: LayerDefinition): VectorTileSource {
+  const cached = riverGuideSourceCache.get(definition.url);
+  if (cached) return cached;
+  const source = new VectorTileSource({
+    url: definition.url,
+    minZoom: 4,
+    maxZoom: 7,
+    format: new MVT({ layerName: 'sourceLayer' }),
+    attributions: definition.attribution,
+    transition: 100,
+  });
+  riverGuideSourceCache.set(definition.url, source);
   return source;
 }
 
@@ -228,6 +292,20 @@ export function createMapLayer(
     properties: { layerId: definition.id },
   };
   if (definition.sourceType === 'gsi-vector-tile' && definition.vectorKind) {
+    if (definition.vectorKind === 'river') {
+      const guideLayer = new VectorTileLayer({
+        source: getSharedRiverGuideSource(definition),
+        declutter: true,
+        style: riverGuideStyle,
+      });
+      const detailLayer = new VectorTileLayer({
+        minZoom: 7.99,
+        source: getSharedVectorTileSource(definition),
+        declutter: true,
+        style: (feature, resolution) => vectorTileStyle('river', feature, resolution),
+      });
+      return new LayerGroup({ ...common, layers: [detailLayer, guideLayer] });
+    }
     return new VectorTileLayer({
       ...common,
       source: getSharedVectorTileSource(definition),

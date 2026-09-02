@@ -109,7 +109,7 @@ export const layerRegistry: readonly LayerDefinition[] = [
     id: 'gsi-vector-river', titleJa: '河川中心線（試験公開）', titleEn: 'River Centerlines (Experimental)', category: 'hydrography', layerRole: 'overlay',
     sourceType: 'gsi-vector-tile', vectorKind: 'river', url: 'https://cyberjapandata.gsi.go.jp/xyz/experimental_bvmap/{z}/{x}/{y}.pbf', minZoom: 6, maxZoom: 16,
     defaultOpacity: 0.9, attribution: '国土地理院・地理院地図Vector（試験公開）', legendUrl: GSI_VECTOR, sourcePageUrl: GSI_VECTOR,
-    description: '河川中心線と河川名注記をZL6以上で詳細表示します。広域では線が密になる場合があります。管理者区分ではありません。', stability: 'experimental',
+    description: 'ZL6～7の一般化河川線を連続ガイドとして保持し、ZL8以上では詳細中心線と水域を重ねます。高ズームの破線は位置追跡用の一般化線で、実河道とずれる場合があります。河川管理区分ではありません。', stability: 'experimental',
   },
   {
     id: 'gsi-vector-contour', titleJa: '等高線（試験公開・省電力）', titleEn: 'Contours (Experimental)', category: 'terrain', layerRole: 'overlay',
