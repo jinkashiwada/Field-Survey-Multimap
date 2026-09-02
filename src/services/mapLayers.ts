@@ -17,7 +17,18 @@ const demImageSourceCache = new Map<string, ImageTile>();
 const majorRoadStyle = new Style({ stroke: new Stroke({ color: '#dd3b2a', width: 2.4 }) });
 const motorwayStyle = new Style({ stroke: new Stroke({ color: '#168b55', width: 3.2 }) });
 const railwayStyle = new Style({ stroke: new Stroke({ color: '#5d285f', width: 2.2, lineDash: [7, 4] }) });
-const riverStyle = new Style({ stroke: new Stroke({ color: '#0878be', width: 2.4 }) });
+const riverStyle = [
+  new Style({ stroke: new Stroke({ color: 'rgba(255,255,255,0.92)', width: 4.8 }) }),
+  new Style({ stroke: new Stroke({ color: '#0878be', width: 2.8 }) }),
+];
+const largeRiverStyle = [
+  new Style({ stroke: new Stroke({ color: 'rgba(255,255,255,0.95)', width: 5.6 }) }),
+  new Style({ stroke: new Stroke({ color: '#075d9a', width: 3.6 }) }),
+];
+const mediumRiverStyle = [
+  new Style({ stroke: new Stroke({ color: 'rgba(255,255,255,0.92)', width: 4.8 }) }),
+  new Style({ stroke: new Stroke({ color: '#0878be', width: 2.8 }) }),
+];
 const contourStyle = new Style({ stroke: new Stroke({ color: '#8a5f26', width: 0.85 }) });
 const indexContourStyle = new Style({ stroke: new Stroke({ color: '#704315', width: 1.45 }) });
 const auxiliaryContourStyle = new Style({ stroke: new Stroke({ color: '#9a7545', width: 0.75, lineDash: [8, 5] }) });
@@ -44,7 +55,11 @@ function textStyle(cache: Map<string, Style>, label: string, color: string): Sty
   return style;
 }
 
-export function vectorTileStyle(kind: VectorLayerKind, feature: FeatureLike): Style | undefined {
+function zoomFromResolution(resolution: number): number {
+  return resolution > 0 ? Math.log2(156_543.033_928_040_97 / resolution) : 20;
+}
+
+export function vectorTileStyle(kind: VectorLayerKind, feature: FeatureLike, resolution = 0): Style | Style[] | undefined {
   const layer = sourceLayer(feature);
   if (kind === 'major-road') {
     if (layer !== 'road') return undefined;
@@ -54,10 +69,16 @@ export function vectorTileStyle(kind: VectorLayerKind, feature: FeatureLike): St
   }
   if (kind === 'railway') return layer === 'railway' ? railwayStyle : undefined;
   if (kind === 'river') {
-    if (layer === 'river') return riverStyle;
+    const zoom = zoomFromResolution(resolution);
+    if (layer === 'river') {
+      const code = Number(feature.get('ftCode'));
+      if (code === 55_301) return largeRiverStyle;
+      if (code === 55_302) return zoom >= 7 ? mediumRiverStyle : undefined;
+      return riverStyle;
+    }
     if (layer === 'label' && Number(feature.get('annoCtg')) === 322) {
       const label = String(feature.get('knj') ?? '').trim();
-      return label ? textStyle(riverLabelStyles, label, '#174aa3') : undefined;
+      return label && zoom >= 6 ? textStyle(riverLabelStyles, label, '#174aa3') : undefined;
     }
     return undefined;
   }
@@ -93,8 +114,8 @@ function getSharedVectorTileSource(definition: LayerDefinition): VectorTileSourc
   if (cached) return cached;
   const source = new VectorTileSource({
     url: definition.url,
-    minZoom: definition.minZoom,
-    maxZoom: definition.maxZoom,
+    minZoom: 4,
+    maxZoom: 16,
     format: new MVT({ layerName: 'sourceLayer' }),
     attributions: definition.attribution,
     transition: 100,
@@ -211,7 +232,7 @@ export function createMapLayer(
       ...common,
       source: getSharedVectorTileSource(definition),
       declutter: true,
-      style: (feature) => vectorTileStyle(definition.vectorKind!, feature),
+      style: (feature, resolution) => vectorTileStyle(definition.vectorKind!, feature, resolution),
     });
   }
   if (definition.sourceType === 'dem-rgb') {

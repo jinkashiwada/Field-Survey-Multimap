@@ -14,6 +14,7 @@ describe('layer registry', () => {
       'gsi-vector-contour',
     ]));
     expect(layerRegistry.find((layer) => layer.id === 'gsi-seamlessphoto')?.minZoom).toBe(2);
+    expect(layerRegistry.find((layer) => layer.id === 'gsi-vector-river')?.minZoom).toBe(7);
     expect(validateLayerRegistry(layerRegistry)).toEqual([]);
   });
 
