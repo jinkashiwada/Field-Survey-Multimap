@@ -1,0 +1,24 @@
+:root {
+  color: #153243;
+  background: #eaf0f3;
+  font-family: Inter, "Noto Sans JP", "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* { box-sizing: border-box; }
+html, body, #root { width: 100%; min-width: 320px; min-height: 100%; margin: 0; }
+body { min-height: 100dvh; }
+button, select, input, textarea { font: inherit; }
+button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-visible, a:focus-visible {
+  outline: 3px solid #f59e0b;
+  outline-offset: 2px;
+}
+
+.app-shell { min-height: 100dvh; display: flex; flex-direction: column; }
+.app-titlebar { padding: 0.85rem 1.25rem; color: white; background: #173f5f; }
+.app-titlebar h1 { margin: 0; font-size: clamp(1.1rem, 3vw, 1.55rem); }
+.eyebrow { margin: 0 0 0.2rem; color: #b7d8e8; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; }
+.empty-state { margin: auto; max-width: 42rem; padding: 2rem; text-align: center; }
+.empty-state h2 { margin-top: 0; }
+

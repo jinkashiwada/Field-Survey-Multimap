@@ -1,0 +1,4 @@
+# アーキテクチャ
+
+ReactとTypeScriptでUI・状態を管理し、OpenLayers本体を直接初期化する。ペインごとにMapとLayerを分離し、Viewと共通VectorSourceを共有する。永続化はlocalStorage、表示共有はURL hashに限定する。
+
