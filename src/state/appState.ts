@@ -1,5 +1,5 @@
 import type { MapLayout } from '../domain/layout';
-import type { PaneLayerState } from '../domain/layers';
+import type { ElevationColorRange, PaneLayerState } from '../domain/layers';
 import type { PresetDefinition } from '../config/presets';
 import { layerById } from '../config/layers';
 
@@ -14,6 +14,7 @@ export type AppAction =
   | { type: 'set-base-layer'; paneIndex: number; layerId: string }
   | { type: 'toggle-overlay'; paneIndex: number; layerId: string }
   | { type: 'set-opacity'; paneIndex: number; layerId: string; opacity: number }
+  | { type: 'set-elevation-range'; paneIndex: number; range: ElevationColorRange }
   | { type: 'apply-preset'; preset: PresetDefinition; paneLimit?: number }
   | { type: 'notify'; message: string; preserveExisting?: boolean }
   | { type: 'clear-notice' };
@@ -25,6 +26,7 @@ export const initialAppState: AppState = {
     baseLayerId: index === 1 ? 'gsi-seamlessphoto' : 'gsi-std',
     overlayLayerIds: [],
     opacityByLayerId: { [index === 1 ? 'gsi-seamlessphoto' : 'gsi-std']: 1 },
+    elevationColorRange: { minimum: 0, maximum: 20 },
   })),
 };
 
@@ -61,6 +63,13 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       return updatePane(state, action.paneIndex, (pane) => ({
         ...pane,
         opacityByLayerId: { ...pane.opacityByLayerId, [action.layerId]: Math.min(1, Math.max(0, action.opacity)) },
+      }));
+    case 'set-elevation-range':
+      return updatePane(state, action.paneIndex, (pane) => ({
+        ...pane,
+        elevationColorRange: action.range.maximum > action.range.minimum
+          ? action.range
+          : pane.elevationColorRange,
       }));
     case 'apply-preset': {
       const limit = action.paneLimit ?? action.preset.panes.length;

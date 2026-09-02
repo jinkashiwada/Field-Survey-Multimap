@@ -1,5 +1,6 @@
+import { useState } from 'react';
 import { baseLayerDefinitions, layerById, overlayLayerDefinitions } from '../../config/layers';
-import type { PaneLayerState } from '../../domain/layers';
+import type { ElevationColorRange, PaneLayerState } from '../../domain/layers';
 
 interface PaneLayerControlsProps {
   index: number;
@@ -7,9 +8,16 @@ interface PaneLayerControlsProps {
   onBaseChange: (id: string) => void;
   onOverlayToggle: (id: string) => void;
   onOpacityChange: (id: string, opacity: number) => void;
+  onElevationRangeChange: (range: ElevationColorRange) => void;
+  onEstimateElevationRange: () => void;
+  elevationRangeLoading: boolean;
 }
 
-export function PaneLayerControls({ index, config, onBaseChange, onOverlayToggle, onOpacityChange }: PaneLayerControlsProps) {
+export function PaneLayerControls({ index, config, onBaseChange, onOverlayToggle, onOpacityChange, onElevationRangeChange, onEstimateElevationRange, elevationRangeLoading }: PaneLayerControlsProps) {
+  const [minimumDraft, setMinimumDraft] = useState<string | null>(null);
+  const [maximumDraft, setMaximumDraft] = useState<string | null>(null);
+  const minimum = minimumDraft ?? String(config.elevationColorRange.minimum);
+  const maximum = maximumDraft ?? String(config.elevationColorRange.maximum);
   const activeDefinitions = [config.baseLayerId, ...config.overlayLayerIds]
     .map((id) => layerById.get(id))
     .filter((definition) => definition !== undefined);
@@ -24,6 +32,32 @@ export function PaneLayerControls({ index, config, onBaseChange, onOverlayToggle
             {baseLayerDefinitions.map((layer) => <option key={layer.id} value={layer.id}>{layer.titleJa}</option>)}
           </select>
         </label>
+        {config.baseLayerId === 'gsi-relief-custom' && (
+          <section className="elevation-range-control" aria-label="標高配色レンジ">
+            <strong>標高配色レンジ</strong>
+            <div className="range-inputs">
+              <label>最低（m）<input type="number" step="0.5" value={minimum} onChange={(event) => setMinimumDraft(event.target.value)} /></label>
+              <label>最高（m）<input type="number" step="0.5" value={maximum} onChange={(event) => setMaximumDraft(event.target.value)} /></label>
+            </div>
+            <div className="compact-actions">
+              <button type="button" onClick={() => {
+                const next = { minimum: Number(minimum), maximum: Number(maximum) };
+                if (Number.isFinite(next.minimum) && Number.isFinite(next.maximum) && next.maximum > next.minimum) {
+                  onElevationRangeChange(next);
+                  setMinimumDraft(null);
+                  setMaximumDraft(null);
+                }
+              }}>適用</button>
+              <button type="button" onClick={() => { setMinimumDraft(null); setMaximumDraft(null); onElevationRangeChange({ minimum: 0, maximum: 10 }); }}>低平地 0～10m</button>
+              <button type="button" onClick={() => { setMinimumDraft(null); setMaximumDraft(null); onEstimateElevationRange(); }} disabled={elevationRangeLoading}>
+                {elevationRangeLoading ? '推定中…' : '表示範囲から推定'}
+              </button>
+            </div>
+            <p>再配色は新しい256pxタイルの受信時とレンジ変更時だけ行います。範囲推定は押した時だけ16地点を標本抽出し、地図移動中の毎フレーム計算はしません。</p>
+            <div className="elevation-ramp" aria-label={`${config.elevationColorRange.minimum}メートルから${config.elevationColorRange.maximum}メートルの凡例`} />
+            <small>{config.elevationColorRange.minimum} m / {config.elevationColorRange.maximum} m</small>
+          </section>
+        )}
         <fieldset>
           <legend>重畳レイヤー</legend>
           {overlayLayerDefinitions.map((layer) => (
@@ -33,7 +67,7 @@ export function PaneLayerControls({ index, config, onBaseChange, onOverlayToggle
                 checked={config.overlayLayerIds.includes(layer.id)}
                 onChange={() => onOverlayToggle(layer.id)}
               />
-              <span>{layer.titleJa}</span>
+              <span>{layer.titleJa}{layer.stability === 'experimental' ? ' ⚗' : ''}</span>
             </label>
           ))}
         </fieldset>
@@ -64,4 +98,3 @@ export function PaneLayerControls({ index, config, onBaseChange, onOverlayToggle
     </details>
   );
 }
-

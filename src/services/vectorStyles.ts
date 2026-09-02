@@ -32,10 +32,9 @@ export function gisStyle(feature: FeatureLike): Style {
 }
 
 export function featureDisplayName(feature: FeatureLike): string | null {
-  for (const key of ['name', 'riverName', '河川名']) {
+  for (const key of ['name', 'riverName', '河川名', 'knj', 'N02_003', 'W05_004']) {
     const value: unknown = feature.get(key);
     if (typeof value === 'string' && value.trim()) return value.trim();
   }
   return null;
 }
-

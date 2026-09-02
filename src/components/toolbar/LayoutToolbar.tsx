@@ -15,10 +15,11 @@ interface LayoutToolbarProps {
   onExportKml: () => void;
   onExportGeoJson: () => void;
   onShare: () => void;
+  onSearch: () => void;
   onSettings: () => void;
 }
 
-export function LayoutToolbar({ activeLayout, viewport, onChange, onPreset, onLocate, locationLoading, onAddPin, onImport, onExportKml, onExportGeoJson, onShare, onSettings }: LayoutToolbarProps) {
+export function LayoutToolbar({ activeLayout, viewport, onChange, onPreset, onLocate, locationLoading, onAddPin, onImport, onExportKml, onExportGeoJson, onShare, onSearch, onSettings }: LayoutToolbarProps) {
   const twoPaneLayout = splitForViewport(viewport);
   return (
     <nav className="toolbar" aria-label="地図表示ツール">
@@ -48,6 +49,7 @@ export function LayoutToolbar({ activeLayout, viewport, onChange, onPreset, onLo
       <button type="button" onClick={onExportKml}>KML出力</button>
       <button type="button" onClick={onExportGeoJson}>GeoJSON出力</button>
       <button type="button" onClick={onShare}>表示URLをコピー</button>
+      <button type="button" onClick={onSearch}>検索</button>
       <button type="button" onClick={onSettings}>設定</button>
     </nav>
   );

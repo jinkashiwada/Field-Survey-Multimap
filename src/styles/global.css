@@ -41,6 +41,11 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
 .center-crosshair::before, .center-crosshair::after { content: ""; position: absolute; background: #d7191c; }
 .center-crosshair::before { top: 13px; left: 0; width: 28px; height: 2px; }
 .center-crosshair::after { top: 0; left: 13px; width: 2px; height: 28px; }
+.map-feature-tooltip { position: absolute; z-index: 9; max-width: min(260px, 70%); padding: 0.3rem 0.45rem; border-radius: 0.3rem; color: #fff; background: rgb(15 47 65 / 92%); box-shadow: 0 2px 8px rgb(0 0 0 / 28%); font-size: 0.78rem; font-weight: 700; pointer-events: none; }
+.map-context-menu { position: absolute; z-index: 20; display: grid; width: 222px; overflow: hidden; border: 1px solid #78909c; border-radius: 0.55rem; background: #fff; box-shadow: 0 8px 26px rgb(0 0 0 / 32%); }
+.map-context-menu strong { padding: 0.55rem 0.65rem; color: #48636f; background: #eef4f6; font-size: 0.72rem; font-variant-numeric: tabular-nums; }
+.map-context-menu button, .map-context-menu a { min-height: 42px; display: flex; align-items: center; padding: 0.45rem 0.65rem; border: 0; border-top: 1px solid #d8e0e4; border-radius: 0; color: #153243; background: #fff; text-align: left; text-decoration: none; cursor: pointer; }
+.map-context-menu button:hover, .map-context-menu a:hover { background: #e7f3f8; }
 .center-status { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 0.5rem 1rem; padding: 0.35rem 0.65rem; color: #fff; background: #153243; font-size: 0.78rem; }
 .center-status dl { display: flex; flex-wrap: wrap; gap: 0.35rem 1rem; margin: 0; }
 .center-status dl div { display: flex; gap: 0.3rem; }
@@ -63,6 +68,15 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
 .layer-links { display: grid; gap: 0.55rem; margin-top: 0.55rem; padding-top: 0.55rem; border-top: 1px solid #d8e0e4; }
 .layer-links p { margin: 0.15rem 0; font-size: 0.8rem; }
 .layer-links a { color: #075c85; }
+.elevation-range-control { display: grid; gap: 0.55rem; margin-top: 0.7rem; padding: 0.65rem; border: 1px solid #a9bcc5; border-radius: 0.45rem; background: #f2f7f9; }
+.elevation-range-control p { margin: 0; color: #48636f; font-size: 0.75rem; }
+.range-inputs { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+.range-inputs label { display: grid; gap: 0.2rem; font-size: 0.78rem; }
+.range-inputs input { width: 100%; min-height: 40px; padding: 0.35rem; border: 1px solid #93a7b2; border-radius: 0.35rem; }
+.compact-actions { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.compact-actions button { min-height: 40px; padding: 0.35rem 0.55rem; border: 1px solid #7e929d; border-radius: 0.35rem; color: #153243; background: #fff; cursor: pointer; }
+.compact-actions button:disabled { opacity: 0.5; cursor: wait; }
+.elevation-ramp { height: 14px; border: 1px solid #71858f; border-radius: 3px; background: linear-gradient(90deg, #313695, #74add1, #ffffbf, #f46d43, #a50026); }
 .ol-attribution { max-width: calc(100% - 0.5rem); font-size: 0.68rem; }
 .data-drawer { position: fixed; z-index: 30; top: 0; right: 0; width: min(420px, 100vw); height: 100dvh; overflow: auto; padding: 0 0.85rem calc(1rem + env(safe-area-inset-bottom)); background: #f8fbfc; border-left: 1px solid #9fb0b8; box-shadow: -8px 0 28px rgb(0 0 0 / 24%); }
 .data-drawer > header { position: sticky; z-index: 2; top: 0; display: flex; align-items: center; justify-content: space-between; min-height: 58px; background: #f8fbfc; border-bottom: 1px solid #cad5da; }
@@ -87,6 +101,12 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
 .drawer-note { color: #48636f; font-size: 0.82rem; }
 .source-list { display: grid; gap: 0.55rem; padding-left: 1.2rem; }
 .source-list a { color: #075c85; }
+.search-form { display: grid; gap: 0.4rem; padding: 0.8rem 0; }
+.search-form > div { display: grid; grid-template-columns: 1fr auto; gap: 0.4rem; }
+.search-form input { min-width: 0; min-height: 44px; padding: 0.5rem; border: 1px solid #7e929d; border-radius: 0.4rem; }
+.search-results { display: grid; gap: 0.5rem; margin: 0; padding: 0; list-style: none; }
+.search-results button { width: 100%; min-height: 58px; display: grid; gap: 0.15rem; padding: 0.55rem 0.7rem; text-align: left; }
+.search-results small { font-variant-numeric: tabular-nums; }
 .dialog-backdrop { position: fixed; z-index: 50; inset: 0; display: grid; place-items: center; padding: 1rem; background: rgb(0 0 0 / 52%); }
 .share-dialog { width: min(560px, 100%); padding: 1rem; border-radius: 0.7rem; color: #153243; background: #fff; box-shadow: 0 10px 36px rgb(0 0 0 / 35%); }
 .share-dialog h2 { margin-top: 0; }

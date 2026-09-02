@@ -93,17 +93,9 @@ function getTileImageData(url: string, signal: AbortSignal): Promise<ImageData |
 export async function fetchElevation(longitude: number, latitude: number, signal: AbortSignal): Promise<ElevationResult | null> {
   for (const dem of demPriority) {
     if (signal.aborted) throw new DOMException('Aborted', 'AbortError');
-    const coordinate = calculateTilePixel(longitude, latitude, dem.zoom);
-    const url = dem.url
-      .replace('{z}', String(coordinate.zoom))
-      .replace('{x}', String(coordinate.tileX))
-      .replace('{y}', String(coordinate.tileY));
     try {
-      const image = await getTileImageData(url, signal);
-      if (!image) continue;
-      const offset = (coordinate.pixelY * TILE_SIZE + coordinate.pixelX) * 4;
-      const elevation = decodeElevationRgb(image.data[offset]!, image.data[offset + 1]!, image.data[offset + 2]!);
-      if (elevation !== null) return { elevation, source: dem.title };
+      const result = await fetchElevationFromDem(dem, longitude, latitude, signal);
+      if (result) return result;
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') throw error;
     }
@@ -111,3 +103,20 @@ export async function fetchElevation(longitude: number, latitude: number, signal
   return null;
 }
 
+export async function fetchElevationFromDem(
+  dem: DemDefinition,
+  longitude: number,
+  latitude: number,
+  signal: AbortSignal,
+): Promise<ElevationResult | null> {
+  const coordinate = calculateTilePixel(longitude, latitude, dem.zoom);
+  const url = dem.url
+    .replace('{z}', String(coordinate.zoom))
+    .replace('{x}', String(coordinate.tileX))
+    .replace('{y}', String(coordinate.tileY));
+  const image = await getTileImageData(url, signal);
+  if (!image) return null;
+  const offset = (coordinate.pixelY * TILE_SIZE + coordinate.pixelX) * 4;
+  const elevation = decodeElevationRgb(image.data[offset]!, image.data[offset + 1]!, image.data[offset + 2]!);
+  return elevation === null ? null : { elevation, source: dem.title };
+}

@@ -28,5 +28,15 @@ describe('URL state codec', () => {
     expect(parsed.panes[0]?.overlayLayerIds).toEqual(['hazard-flood-l2']);
     expect(parsed.panes[0]?.opacityByLayerId['hazard-flood-l2']).toBe(0.65);
   });
-});
 
+  it('round-trips custom elevation ranges and rejects reversed ranges', () => {
+    const state = defaultUrlState();
+    state.panes[0]!.baseLayerId = 'gsi-relief-custom';
+    state.panes[0]!.elevationColorRange = { minimum: -2, maximum: 12.5 };
+    const hash = serializeUrlState(state);
+    expect(hash).toContain('e0=-2.0%3A12.5');
+    expect(parseUrlState(hash).panes[0]?.elevationColorRange).toEqual({ minimum: -2, maximum: 12.5 });
+    expect(parseUrlState('#v=1&b0=gsi-relief-custom&e0=20:10').panes[0]?.elevationColorRange)
+      .toEqual({ minimum: 0, maximum: 20 });
+  });
+});

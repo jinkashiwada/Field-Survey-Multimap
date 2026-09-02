@@ -45,7 +45,7 @@ export function PinPanel(props: PinPanelProps) {
     <aside className="data-drawer" aria-label="ピン管理">
       <header><h2>ピン</h2><button type="button" aria-label="ピン管理を閉じる" onClick={props.onClose}>×</button></header>
       <form className="pin-form" onSubmit={submit}>
-        <p>{editing ? '選択したピンを編集' : '現在の地図中心にピンを追加'}</p>
+        <p>{editing ? '選択したピンを編集' : '指定した地図地点にピンを追加'}</p>
         <label>名称<input value={name} maxLength={100} onChange={(event) => setName(event.target.value)} /></label>
         <label>種別
           <select value={type} onChange={(event) => setType(event.target.value as PinType)}>
@@ -54,7 +54,7 @@ export function PinPanel(props: PinPanelProps) {
         </label>
         <label>メモ<textarea value={memo} maxLength={2000} rows={3} onChange={(event) => setMemo(event.target.value)} /></label>
         <div className="form-actions">
-          <button type="submit">{editing ? '更新' : '中心に追加'}</button>
+          <button type="submit">{editing ? '更新' : 'この地点に追加'}</button>
           {editing && <button type="button" onClick={resetForm}>編集を中止</button>}
         </div>
       </form>
@@ -83,4 +83,3 @@ export function PinPanel(props: PinPanelProps) {
     </aside>
   );
 }
-

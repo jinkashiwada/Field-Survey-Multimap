@@ -16,6 +16,7 @@ function pane(baseLayerId: string, overlayLayerIds: string[] = []): PaneLayerSta
     baseLayerId,
     overlayLayerIds,
     opacityByLayerId: Object.fromEntries(ids.map((id) => [id, layerById.get(id)?.defaultOpacity ?? 1])),
+    elevationColorRange: { minimum: 0, maximum: 20 },
   };
 }
 
@@ -41,4 +42,3 @@ export const presetRegistry: readonly PresetDefinition[] = [
     panes: [pane('gsi-std'), pane('gsi-seamlessphoto'), pane('gsi-pale', ['gsi-lcmfc2']), pane('gsi-pale', ['hazard-flood-l2'])],
   },
 ] as const;
-

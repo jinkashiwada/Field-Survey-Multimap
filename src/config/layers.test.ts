@@ -3,8 +3,17 @@ import type { LayerDefinition } from '../domain/layers';
 import { layerRegistry, validateLayerRegistry } from './layers';
 
 describe('layer registry', () => {
-  it('contains all 13 required definitions with valid fields', () => {
-    expect(layerRegistry).toHaveLength(13);
+  it('contains the required definitions and added lightweight layers with valid fields', () => {
+    expect(layerRegistry.length).toBeGreaterThanOrEqual(13);
+    expect(layerRegistry.map((layer) => layer.id)).toEqual(expect.arrayContaining([
+      'gsi-seamlessphoto',
+      'gsi-relief-custom',
+      'gsi-vector-major-road',
+      'gsi-vector-railway',
+      'gsi-vector-river',
+      'gsi-vector-contour',
+    ]));
+    expect(layerRegistry.find((layer) => layer.id === 'gsi-seamlessphoto')?.minZoom).toBe(2);
     expect(validateLayerRegistry(layerRegistry)).toEqual([]);
   });
 
@@ -18,4 +27,3 @@ describe('layer registry', () => {
     expect(validateLayerRegistry(broken)).toContain('gsi-std: missing sourcePageUrl');
   });
 });
-

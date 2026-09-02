@@ -9,7 +9,12 @@ const VERSION = '1';
 function defaultPanes(): PaneLayerState[] {
   return Array.from({ length: 4 }, (_, index) => {
     const baseLayerId = index === 1 ? 'gsi-seamlessphoto' : 'gsi-std';
-    return { baseLayerId, overlayLayerIds: [], opacityByLayerId: { [baseLayerId]: 1 } };
+    return {
+      baseLayerId,
+      overlayLayerIds: [],
+      opacityByLayerId: { [baseLayerId]: 1 },
+      elevationColorRange: { minimum: 0, maximum: 20 },
+    };
   });
 }
 
@@ -50,7 +55,13 @@ function parsePane(params: URLSearchParams, index: number, fallback: PaneLayerSt
   }
   const baseOpacity = params.get(`a${index}`);
   opacityByLayerId[baseLayerId] = finiteInRange(baseOpacity, 0, 1, opacityByLayerId[baseLayerId]!);
-  return { baseLayerId, overlayLayerIds, opacityByLayerId };
+  const elevationValues = params.get(`e${index}`)?.split(':') ?? [];
+  const minimum = finiteInRange(elevationValues[0] ?? null, -500, 8_000, fallback.elevationColorRange.minimum);
+  const maximum = finiteInRange(elevationValues[1] ?? null, -500, 8_000, fallback.elevationColorRange.maximum);
+  const elevationColorRange = maximum > minimum
+    ? { minimum, maximum }
+    : fallback.elevationColorRange;
+  return { baseLayerId, overlayLayerIds, opacityByLayerId, elevationColorRange };
 }
 
 export function parseUrlState(hash: string): UrlMapState {
@@ -80,6 +91,9 @@ export function serializeUrlState(state: UrlMapState): string {
   state.panes.slice(0, 4).forEach((pane, index) => {
     params.set(`b${index}`, pane.baseLayerId);
     params.set(`a${index}`, (pane.opacityByLayerId[pane.baseLayerId] ?? 1).toFixed(2));
+    if (pane.baseLayerId === 'gsi-relief-custom') {
+      params.set(`e${index}`, `${pane.elevationColorRange.minimum.toFixed(1)}:${pane.elevationColorRange.maximum.toFixed(1)}`);
+    }
     if (pane.overlayLayerIds.length > 0) {
       params.set(`o${index}`, pane.overlayLayerIds
         .map((id) => `${id}@${(pane.opacityByLayerId[id] ?? layerById.get(id)?.defaultOpacity ?? 1).toFixed(2)}`)
@@ -88,4 +102,3 @@ export function serializeUrlState(state: UrlMapState): string {
   });
   return `#${params.toString()}`;
 }
-

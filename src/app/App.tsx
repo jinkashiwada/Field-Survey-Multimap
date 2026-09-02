@@ -20,6 +20,8 @@ import { useHashState } from '../hooks/useHashState';
 import { copyCurrentUrl } from '../services/clipboard';
 import { ShareFallbackDialog } from '../components/toolbar/ShareFallbackDialog';
 import { SettingsPanel } from '../components/toolbar/SettingsPanel';
+import { estimateVisibleElevationRange } from '../services/elevation/range';
+import { SearchPanel } from '../components/toolbar/SearchPanel';
 
 function AppContent() {
   const { state, dispatch, sharedView, locationSource, pinSource, gisSource } = useAppContext();
@@ -30,7 +32,16 @@ function AppContent() {
   const [gisExtent, setGisExtent] = useState<Extent | null>(null);
   const [shareFallbackOpen, setShareFallbackOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [elevationRangeLoadingPane, setElevationRangeLoadingPane] = useState<number | null>(null);
+  const [pinLocation, setPinLocation] = useState<{
+    longitude: number;
+    latitude: number;
+    elevation: number | null;
+    elevationSource: string | null;
+  } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const elevationRangeAbortRef = useRef<AbortController | null>(null);
   const tileErrorTimesRef = useRef(new Map<string, number>());
   const effectiveLayout = normalizeLayout(state.layout, viewport);
   const reportTileError = useCallback((message: string) => {
@@ -45,6 +56,37 @@ function AppContent() {
   const { pins, addPin, updatePin, deletePin, clearPins } = usePins(pinSource);
   useHashState(state, sharedView);
   const selectFeature = useCallback((message: string) => dispatch({ type: 'notify', message }), [dispatch]);
+  const requestPinAt = useCallback((longitude: number, latitude: number) => {
+    setPinLocation({ longitude, latitude, elevation: null, elevationSource: null });
+    setPinPanelOpen(true);
+  }, []);
+  const estimateElevationRange = useCallback((paneIndex: number) => {
+    elevationRangeAbortRef.current?.abort();
+    const controller = new AbortController();
+    elevationRangeAbortRef.current = controller;
+    setElevationRangeLoadingPane(paneIndex);
+    void estimateVisibleElevationRange(sharedView, controller.signal)
+      .then((range) => {
+        if (controller.signal.aborted) return;
+        if (range) {
+          dispatch({ type: 'set-elevation-range', paneIndex, range });
+          dispatch({ type: 'notify', message: `表示範囲の16地点から標高レンジを${range.minimum}～${range.maximum} mに推定しました。` });
+        } else {
+          dispatch({ type: 'notify', message: '表示範囲から十分な標高値を取得できませんでした。手動レンジを使用してください。' });
+        }
+      })
+      .catch((error: unknown) => {
+        if (!(error instanceof DOMException && error.name === 'AbortError')) {
+          dispatch({ type: 'notify', message: '標高レンジの推定に失敗しました。地図操作は継続できます。' });
+        }
+      })
+      .finally(() => {
+        if (elevationRangeAbortRef.current === controller) {
+          elevationRangeAbortRef.current = null;
+          setElevationRangeLoadingPane(null);
+        }
+      });
+  }, [dispatch, sharedView]);
 
   const importFiles = useCallback(async (files: FileList | File[]) => {
     let imported = 0;
@@ -92,6 +134,8 @@ function AppContent() {
     }
   }, [dispatch, effectiveLayout, state.layout]);
 
+  useEffect(() => () => elevationRangeAbortRef.current?.abort(), []);
+
   return (
     <main className="app-shell">
       <header className="app-titlebar">
@@ -110,7 +154,15 @@ function AppContent() {
         }}
         onLocate={locate}
         locationLoading={locationStatus.state === 'loading'}
-        onAddPin={() => setPinPanelOpen(true)}
+        onAddPin={() => {
+          setPinLocation({
+            longitude: centerStatus.longitude,
+            latitude: centerStatus.latitude,
+            elevation: centerStatus.elevation,
+            elevationSource: centerStatus.elevationSource,
+          });
+          setPinPanelOpen(true);
+        }}
         onImport={() => { setGisPanelOpen(true); fileInputRef.current?.click(); }}
         onExportKml={() => exportAll('kml')}
         onExportGeoJson={() => exportAll('geojson')}
@@ -120,6 +172,7 @@ function AppContent() {
             else setShareFallbackOpen(true);
           });
         }}
+        onSearch={() => setSearchOpen(true)}
         onSettings={() => setSettingsOpen(true)}
       />
       <input
@@ -147,23 +200,27 @@ function AppContent() {
         onBaseChange={(paneIndex, layerId) => dispatch({ type: 'set-base-layer', paneIndex, layerId })}
         onOverlayToggle={(paneIndex, layerId) => dispatch({ type: 'toggle-overlay', paneIndex, layerId })}
         onOpacityChange={(paneIndex, layerId, opacity) => dispatch({ type: 'set-opacity', paneIndex, layerId, opacity })}
+        onElevationRangeChange={(paneIndex, range) => dispatch({ type: 'set-elevation-range', paneIndex, range })}
+        onEstimateElevationRange={estimateElevationRange}
+        elevationRangeLoadingPane={elevationRangeLoadingPane}
         onTileError={reportTileError}
         onMoveEnd={updateAfterMove}
         locationSource={locationSource}
         pinSource={pinSource}
         gisSource={gisSource}
         onFeatureSelect={selectFeature}
+        onRequestPinAt={requestPinAt}
       />
       <CenterStatusBar status={centerStatus} />
       <PinPanel
         open={pinPanelOpen}
         pins={pins}
-        longitude={centerStatus.longitude}
-        latitude={centerStatus.latitude}
-        elevation={centerStatus.elevation}
-        elevationSource={centerStatus.elevationSource}
-        onClose={() => setPinPanelOpen(false)}
-        onAdd={(pin) => { addPin(pin); dispatch({ type: 'notify', message: '地図中心にピンを追加しました。' }); }}
+        longitude={pinLocation?.longitude ?? centerStatus.longitude}
+        latitude={pinLocation?.latitude ?? centerStatus.latitude}
+        elevation={pinLocation ? pinLocation.elevation : centerStatus.elevation}
+        elevationSource={pinLocation ? pinLocation.elevationSource : centerStatus.elevationSource}
+        onClose={() => { setPinPanelOpen(false); setPinLocation(null); }}
+        onAdd={(pin) => { addPin(pin); dispatch({ type: 'notify', message: '選択地点にピンを追加しました。' }); }}
         onUpdate={(pin) => { updatePin(pin); dispatch({ type: 'notify', message: 'ピンを更新しました。' }); }}
         onDelete={deletePin}
         onClear={clearPins}
@@ -180,6 +237,17 @@ function AppContent() {
         onClear={() => { gisSource.clear(); setGisCount(0); setGisExtent(null); }}
       />
       <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <SearchPanel
+        open={searchOpen}
+        pinFeatures={() => pinSource.getFeatures()}
+        gisFeatures={() => gisSource.getFeatures()}
+        onClose={() => setSearchOpen(false)}
+        onGoTo={(result) => {
+          sharedView.animate({ center: fromLonLat([result.longitude, result.latitude]), zoom: Math.max(sharedView.getZoom() ?? 0, 15), duration: 400 });
+          setSearchOpen(false);
+          dispatch({ type: 'notify', message: `${result.label}へ移動しました。` });
+        }}
+      />
       <ShareFallbackDialog open={shareFallbackOpen} onClose={() => setShareFallbackOpen(false)} />
     </main>
   );

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import OlMap from 'ol/Map';
 import type MapBrowserEvent from 'ol/MapBrowserEvent';
 import type View from 'ol/View';
@@ -8,13 +8,23 @@ import VectorLayer from 'ol/layer/Vector';
 import type VectorSource from 'ol/source/Vector';
 import type Feature from 'ol/Feature';
 import type Geometry from 'ol/geom/Geometry';
+import { toLonLat } from 'ol/proj';
 import { defaults as defaultControls } from 'ol/control/defaults';
-import type { PaneLayerState } from '../../domain/layers';
+import type { ElevationColorRange, PaneLayerState } from '../../domain/layers';
 import { layerById } from '../../config/layers';
-import { createRasterLayer, getSharedXyzSource } from '../../services/mapLayers';
+import { createMapLayer, getSharedLayerSource } from '../../services/mapLayers';
 import { PaneLayerControls } from '../layers/PaneLayerControls';
 import { locationStyle } from '../../services/locationStyle';
 import { featureDisplayName, gisStyle, pinStyle } from '../../services/vectorStyles';
+import { copyText } from '../../services/clipboard';
+
+interface ContextLocation {
+  left: number;
+  top: number;
+  longitude: number;
+  latitude: number;
+  coordinate: number[];
+}
 
 interface MapPaneProps {
   index: number;
@@ -23,17 +33,23 @@ interface MapPaneProps {
   onBaseChange: (id: string) => void;
   onOverlayToggle: (id: string) => void;
   onOpacityChange: (id: string, opacity: number) => void;
+  onElevationRangeChange: (range: ElevationColorRange) => void;
+  onEstimateElevationRange: () => void;
+  elevationRangeLoading: boolean;
   onTileError: (message: string) => void;
   onMoveEnd: () => void;
   locationSource: VectorSource<Feature<Geometry>>;
   pinSource: VectorSource<Feature<Geometry>>;
   gisSource: VectorSource<Feature<Geometry>>;
   onFeatureSelect: (name: string) => void;
+  onRequestPinAt: (longitude: number, latitude: number) => void;
 }
 
-export function MapPane({ index, view, config, onBaseChange, onOverlayToggle, onOpacityChange, onTileError, onMoveEnd, locationSource, pinSource, gisSource, onFeatureSelect }: MapPaneProps) {
+export function MapPane({ index, view, config, onBaseChange, onOverlayToggle, onOpacityChange, onElevationRangeChange, onEstimateElevationRange, elevationRangeLoading, onTileError, onMoveEnd, locationSource, pinSource, gisSource, onFeatureSelect, onRequestPinAt }: MapPaneProps) {
   const targetRef = useRef<HTMLDivElement>(null);
+  const tooltipRef = useRef<HTMLDivElement>(null);
   const rasterGroupRef = useRef(new LayerGroup());
+  const [contextLocation, setContextLocation] = useState<ContextLocation | null>(null);
 
   useEffect(() => {
     const target = targetRef.current;
@@ -59,31 +75,99 @@ export function MapPane({ index, view, config, onBaseChange, onOverlayToggle, on
         const name = featureDisplayName(feature);
         if (name) onFeatureSelect(`選択地物：${name}`);
       }
+      setContextLocation(null);
     };
     map.on('singleclick', selectFeature);
+    let hoverFrame = 0;
+    const showHoverName = (event: PointerEvent) => {
+      cancelAnimationFrame(hoverFrame);
+      hoverFrame = requestAnimationFrame(() => {
+        const tooltip = tooltipRef.current;
+        if (!tooltip) return;
+        const pixel = map.getEventPixel(event);
+        const feature = map.forEachFeatureAtPixel(pixel, (candidate) => candidate, { hitTolerance: 5 });
+        const name = feature ? featureDisplayName(feature) : null;
+        if (!name) {
+          tooltip.hidden = true;
+          target.style.cursor = '';
+          return;
+        }
+        tooltip.textContent = name;
+        tooltip.style.left = `${Math.min((pixel[0] ?? 0) + 12, target.clientWidth - 24)}px`;
+        tooltip.style.top = `${Math.min((pixel[1] ?? 0) + 12, target.clientHeight - 24)}px`;
+        tooltip.hidden = false;
+        target.style.cursor = 'pointer';
+      });
+    };
+    const openContextMenu = (event: MouseEvent | PointerEvent) => {
+      event.preventDefault();
+      const pixel = map.getEventPixel(event);
+      const coordinate = map.getCoordinateFromPixel(pixel);
+      if (!coordinate) return;
+      const [longitude, latitude] = toLonLat(coordinate);
+      if (longitude === undefined || latitude === undefined) return;
+      setContextLocation({
+        left: Math.min(pixel[0] ?? 0, Math.max(8, target.clientWidth - 230)),
+        top: Math.min(pixel[1] ?? 0, Math.max(44, target.clientHeight - 230)),
+        longitude,
+        latitude,
+        coordinate,
+      });
+    };
+    let longPressTimer = 0;
+    let touchStart: [number, number] | null = null;
+    const cancelLongPress = () => {
+      window.clearTimeout(longPressTimer);
+      longPressTimer = 0;
+      touchStart = null;
+    };
+    const startLongPress = (event: PointerEvent) => {
+      if (event.pointerType !== 'touch') return;
+      touchStart = [event.clientX, event.clientY];
+      longPressTimer = window.setTimeout(() => openContextMenu(event), 650);
+    };
+    const checkLongPressMove = (event: PointerEvent) => {
+      if (!touchStart) return;
+      if (Math.hypot(event.clientX - touchStart[0], event.clientY - touchStart[1]) > 10) cancelLongPress();
+    };
+    target.addEventListener('pointermove', showHoverName);
+    target.addEventListener('contextmenu', openContextMenu);
+    target.addEventListener('pointerdown', startLongPress);
+    target.addEventListener('pointermove', checkLongPressMove);
+    target.addEventListener('pointerup', cancelLongPress);
+    target.addEventListener('pointercancel', cancelLongPress);
     observer.observe(target);
     requestAnimationFrame(() => map.updateSize());
 
     return () => {
       observer.disconnect();
+      cancelAnimationFrame(hoverFrame);
+      cancelLongPress();
+      target.removeEventListener('pointermove', showHoverName);
+      target.removeEventListener('contextmenu', openContextMenu);
+      target.removeEventListener('pointerdown', startLongPress);
+      target.removeEventListener('pointermove', checkLongPressMove);
+      target.removeEventListener('pointerup', cancelLongPress);
+      target.removeEventListener('pointercancel', cancelLongPress);
       map.un('moveend', onMoveEnd);
       map.un('singleclick', selectFeature);
       map.setTarget(undefined);
     };
-  }, [gisSource, locationSource, onFeatureSelect, onMoveEnd, pinSource, view]);
+  }, [gisSource, locationSource, onFeatureSelect, onMoveEnd, onRequestPinAt, pinSource, view]);
 
   useEffect(() => {
     const definitions = [config.baseLayerId, ...config.overlayLayerIds]
       .map((id) => layerById.get(id))
       .filter((definition) => definition !== undefined);
-    const layers = definitions.map((definition) => createRasterLayer(
+    const layers = definitions.map((definition) => createMapLayer(
       definition,
       config.opacityByLayerId[definition.id] ?? definition.defaultOpacity,
+      config.elevationColorRange,
     ));
     rasterGroupRef.current.setLayers(new Collection(layers));
 
     const listeners = definitions.map((definition) => {
-      const source = getSharedXyzSource(definition);
+      const source = getSharedLayerSource(definition, config.elevationColorRange);
       const listener = () => onTileError(`${definition.titleJa}の一部を取得できませんでした。`);
       source.on('tileloaderror', listener);
       return { source, listener };
@@ -101,9 +185,52 @@ export function MapPane({ index, view, config, onBaseChange, onOverlayToggle, on
           onBaseChange={onBaseChange}
           onOverlayToggle={onOverlayToggle}
           onOpacityChange={onOpacityChange}
+          onElevationRangeChange={onElevationRangeChange}
+          onEstimateElevationRange={onEstimateElevationRange}
+          elevationRangeLoading={elevationRangeLoading}
         />
       </header>
       <div ref={targetRef} className="map-target" />
+      <div ref={tooltipRef} className="map-feature-tooltip" role="tooltip" hidden />
+      {contextLocation && (
+        <div
+          className="map-context-menu"
+          role="menu"
+          aria-label="地点操作"
+          style={{ left: contextLocation.left, top: contextLocation.top }}
+        >
+          <strong>{contextLocation.latitude.toFixed(6)}, {contextLocation.longitude.toFixed(6)}</strong>
+          <button type="button" role="menuitem" onClick={() => {
+            onRequestPinAt(contextLocation.longitude, contextLocation.latitude);
+            setContextLocation(null);
+          }}>ここにピンを追加</button>
+          <button type="button" role="menuitem" onClick={() => {
+            view.animate({ center: contextLocation.coordinate, duration: 300 });
+            setContextLocation(null);
+          }}>ここを中心に移動</button>
+          <button type="button" role="menuitem" onClick={() => {
+            void copyText(`${contextLocation.latitude.toFixed(6)}, ${contextLocation.longitude.toFixed(6)}`)
+              .then((copied) => onFeatureSelect(copied ? '座標をコピーしました。' : '座標をコピーできませんでした。'));
+            setContextLocation(null);
+          }}>座標をコピー</button>
+          <a
+            role="menuitem"
+            href={`https://maps.gsi.go.jp/#16/${contextLocation.latitude}/${contextLocation.longitude}/&base=std&ls=std&disp=1`}
+            target="_blank"
+            rel="noreferrer"
+            onClick={() => setContextLocation(null)}
+          >地理院地図で開く</a>
+          <a
+            role="menuitem"
+            href={`https://www.google.com/maps?q=${contextLocation.latitude},${contextLocation.longitude}`}
+            target="_blank"
+            rel="noreferrer"
+            title="選択した座標をGoogleへ送信します"
+            onClick={() => setContextLocation(null)}
+          >Googleマップで開く</a>
+          <button type="button" role="menuitem" onClick={() => setContextLocation(null)}>閉じる</button>
+        </div>
+      )}
       <div className="center-crosshair" aria-hidden="true" />
     </section>
   );

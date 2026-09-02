@@ -2,7 +2,10 @@ import type { LayerDefinition } from '../domain/layers';
 
 const GSI_LIST = 'https://maps.gsi.go.jp/development/ichiran.html';
 const HAZARD_OPEN_DATA = 'https://disaportal.gsi.go.jp/hazardmapportal/hazardmap/copyright/opendata.html';
+const GSI_VECTOR = 'https://maps.gsi.go.jp/development/vt_expt.html';
+const GSI_DEM = 'https://maps.gsi.go.jp/development/demtile.html';
 const GSI_ATTRIBUTION = '国土地理院';
+const GSI_PHOTO_ATTRIBUTION = '国土地理院（低ズーム画像：Landsat 8／USGS、世界衛星モザイク／NASA・USGS、海底地形／GEBCO）';
 const HAZARD_ATTRIBUTION = 'ハザードマップポータルサイト（国土地理院）';
 
 export const layerRegistry: readonly LayerDefinition[] = [
@@ -26,15 +29,21 @@ export const layerRegistry: readonly LayerDefinition[] = [
   },
   {
     id: 'gsi-seamlessphoto', titleJa: '全国最新写真', titleEn: 'Seamless Aerial Photo', category: 'imagery', layerRole: 'base',
-    sourceType: 'xyz', url: 'https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg', minZoom: 14, maxZoom: 18,
-    defaultOpacity: 1, attribution: GSI_ATTRIBUTION, legendUrl: GSI_LIST, sourcePageUrl: GSI_LIST,
-    description: '撮影時期の異なる写真を組み合わせた全国最新写真です。撮影時期は地域により異なります。', stability: 'stable',
+    sourceType: 'xyz', url: 'https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg', minZoom: 2, maxZoom: 18,
+    defaultOpacity: 1, attribution: GSI_PHOTO_ATTRIBUTION, legendUrl: GSI_LIST, sourcePageUrl: GSI_LIST,
+    description: 'ZL14以上では全国最新写真、ZL9～13では全国ランドサットモザイク、ZL2～8では世界衛星モザイクを表示します。撮影時期は地域により異なります。', stability: 'stable',
   },
   {
     id: 'gsi-relief', titleJa: '色別標高図', titleEn: 'Digital Elevation Colored Map', category: 'terrain', layerRole: 'base',
     sourceType: 'xyz', url: 'https://cyberjapandata.gsi.go.jp/xyz/relief/{z}/{x}/{y}.png', minZoom: 5, maxZoom: 15,
     defaultOpacity: 1, attribution: GSI_ATTRIBUTION, legendUrl: GSI_LIST, sourcePageUrl: GSI_LIST,
     description: '標高を段彩で表現した地図です。', stability: 'stable',
+  },
+  {
+    id: 'gsi-relief-custom', titleJa: '解析用色別標高図', titleEn: 'Adjustable DEM Color Map', category: 'terrain', layerRole: 'base',
+    sourceType: 'dem-rgb', url: 'https://cyberjapandata.gsi.go.jp/xyz/dem_png/{z}/{x}/{y}.png', minZoom: 2, maxZoom: 18,
+    defaultOpacity: 1, attribution: GSI_ATTRIBUTION, legendUrl: GSI_DEM, sourcePageUrl: GSI_DEM,
+    description: 'DEM10Bの標高値を受信タイル単位で再配色します。指定レンジ外は端色で表示し、端末上で標高値そのものは変更しません。', stability: 'experimental',
   },
   {
     id: 'gsi-hillshade', titleJa: '陰影起伏図', titleEn: 'Hillshade Map', category: 'terrain', layerRole: 'base',
@@ -84,6 +93,30 @@ export const layerRegistry: readonly LayerDefinition[] = [
     defaultOpacity: 0.65, attribution: HAZARD_ATTRIBUTION, legendUrl: HAZARD_OPEN_DATA, sourcePageUrl: HAZARD_OPEN_DATA,
     description: '下水道等から水を排除できない場合の内水浸水想定区域です。', stability: 'stable',
   },
+  {
+    id: 'gsi-vector-major-road', titleJa: '主要道路（試験公開）', titleEn: 'Major Roads (Experimental)', category: 'infrastructure', layerRole: 'overlay',
+    sourceType: 'gsi-vector-tile', vectorKind: 'major-road', url: 'https://cyberjapandata.gsi.go.jp/xyz/experimental_bvmap/{z}/{x}/{y}.pbf', minZoom: 4, maxZoom: 16,
+    defaultOpacity: 0.88, attribution: '国土地理院・地理院地図Vector（試験公開）', legendUrl: GSI_VECTOR, sourcePageUrl: GSI_VECTOR,
+    description: '高速道路と国道を強調表示します。試験公開データであり、更新・仕様変更や未収録の可能性があります。', stability: 'experimental',
+  },
+  {
+    id: 'gsi-vector-railway', titleJa: '鉄道（試験公開）', titleEn: 'Railways (Experimental)', category: 'infrastructure', layerRole: 'overlay',
+    sourceType: 'gsi-vector-tile', vectorKind: 'railway', url: 'https://cyberjapandata.gsi.go.jp/xyz/experimental_bvmap/{z}/{x}/{y}.pbf', minZoom: 4, maxZoom: 16,
+    defaultOpacity: 0.9, attribution: '国土地理院・地理院地図Vector（試験公開）', legendUrl: GSI_VECTOR, sourcePageUrl: GSI_VECTOR,
+    description: '鉄道中心線を表示します。試験公開データであり、更新・仕様変更や未収録の可能性があります。', stability: 'experimental',
+  },
+  {
+    id: 'gsi-vector-river', titleJa: '河川中心線（試験公開）', titleEn: 'River Centerlines (Experimental)', category: 'hydrography', layerRole: 'overlay',
+    sourceType: 'gsi-vector-tile', vectorKind: 'river', url: 'https://cyberjapandata.gsi.go.jp/xyz/experimental_bvmap/{z}/{x}/{y}.pbf', minZoom: 4, maxZoom: 16,
+    defaultOpacity: 0.9, attribution: '国土地理院・地理院地図Vector（試験公開）', legendUrl: GSI_VECTOR, sourcePageUrl: GSI_VECTOR,
+    description: '河川中心線と河川名注記を表示します。名称は注記が収録された地点にマウスを重ねると確認できます。', stability: 'experimental',
+  },
+  {
+    id: 'gsi-vector-contour', titleJa: '等高線（試験公開・省電力）', titleEn: 'Contours (Experimental)', category: 'terrain', layerRole: 'overlay',
+    sourceType: 'gsi-vector-tile', vectorKind: 'contour', url: 'https://cyberjapandata.gsi.go.jp/xyz/experimental_bvmap/{z}/{x}/{y}.pbf', minZoom: 8, maxZoom: 16,
+    defaultOpacity: 0.78, attribution: '国土地理院・地理院地図Vector（試験公開）', legendUrl: GSI_VECTOR, sourcePageUrl: GSI_VECTOR,
+    description: '端末でDEM等高線を計算せず、地理院の試験公開ベクトル等高線を表示します。間隔は地図仕様に従い、任意指定はできません。', stability: 'experimental',
+  },
 ] as const;
 
 export const baseLayerDefinitions = layerRegistry.filter((definition) => definition.layerRole === 'base');
@@ -101,7 +134,7 @@ export function validateLayerRegistry(registry: readonly LayerDefinition[]): str
     }
     if (layer.minZoom < 0 || layer.maxZoom < layer.minZoom) errors.push(`${layer.id}: invalid zoom range`);
     if (layer.defaultOpacity < 0 || layer.defaultOpacity > 1) errors.push(`${layer.id}: invalid opacity`);
+    if (layer.sourceType === 'gsi-vector-tile' && !layer.vectorKind) errors.push(`${layer.id}: missing vectorKind`);
   }
   return errors;
 }
-

@@ -17,5 +17,15 @@ describe('application reducer', () => {
     expect(state.panes[1]?.baseLayerId).toBe('gsi-seamlessphoto');
     expect(state.notice).toContain('4画面版');
   });
-});
 
+  it('updates only a valid elevation color range', () => {
+    const updated = appReducer(initialAppState, {
+      type: 'set-elevation-range', paneIndex: 0, range: { minimum: -1, maximum: 9 },
+    });
+    expect(updated.panes[0]?.elevationColorRange).toEqual({ minimum: -1, maximum: 9 });
+    const rejected = appReducer(updated, {
+      type: 'set-elevation-range', paneIndex: 0, range: { minimum: 9, maximum: 9 },
+    });
+    expect(rejected.panes[0]?.elevationColorRange).toEqual({ minimum: -1, maximum: 9 });
+  });
+});
