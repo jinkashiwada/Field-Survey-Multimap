@@ -6,7 +6,8 @@ export function resolveBasePath(
   explicit = process.env.PAGES_BASE_PATH,
 ): string {
   if (explicit) {
-    return explicit.startsWith('/') ? explicit : `/${explicit}`;
+    const prefixed = explicit.startsWith('/') ? explicit : `/${explicit}`;
+    return prefixed.endsWith('/') ? prefixed : `${prefixed}/`;
   }
   if (!repository || !process.env.GITHUB_ACTIONS) {
     return '/';
@@ -22,4 +23,3 @@ export default defineConfig({
   base: resolveBasePath(),
   plugins: [react()],
 });
-

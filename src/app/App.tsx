@@ -38,7 +38,7 @@ function AppContent() {
     const previous = tileErrorTimesRef.current.get(message) ?? 0;
     if (now - previous < 30_000) return;
     tileErrorTimesRef.current.set(message, now);
-    dispatch({ type: 'notify', message });
+    dispatch({ type: 'notify', message, preserveExisting: true });
   }, [dispatch]);
   const { status: centerStatus, updateAfterMove } = useCenterStatus(sharedView);
   const { status: locationStatus, locate } = useGeolocation(sharedView, locationSource);

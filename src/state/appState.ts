@@ -15,7 +15,7 @@ export type AppAction =
   | { type: 'toggle-overlay'; paneIndex: number; layerId: string }
   | { type: 'set-opacity'; paneIndex: number; layerId: string; opacity: number }
   | { type: 'apply-preset'; preset: PresetDefinition; paneLimit?: number }
-  | { type: 'notify'; message: string }
+  | { type: 'notify'; message: string; preserveExisting?: boolean }
   | { type: 'clear-notice' };
 
 export const initialAppState: AppState = {
@@ -75,7 +75,9 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       };
     }
     case 'notify':
-      return state.notice === action.message ? state : { ...state, notice: action.message };
+      return state.notice === action.message || (action.preserveExisting && state.notice)
+        ? state
+        : { ...state, notice: action.message };
     case 'clear-notice':
       return { ...state, notice: null };
   }
