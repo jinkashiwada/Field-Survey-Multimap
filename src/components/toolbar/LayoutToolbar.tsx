@@ -1,14 +1,16 @@
 import type { MapLayout } from '../../domain/layout';
 import type { ViewportSize } from '../../utils/layout';
 import { splitForViewport, supportsQuad } from '../../utils/layout';
+import { PresetControl } from './PresetControl';
 
 interface LayoutToolbarProps {
   activeLayout: MapLayout;
   viewport: ViewportSize;
   onChange: (layout: MapLayout) => void;
+  onPreset: (id: string) => void;
 }
 
-export function LayoutToolbar({ activeLayout, viewport, onChange }: LayoutToolbarProps) {
+export function LayoutToolbar({ activeLayout, viewport, onChange, onPreset }: LayoutToolbarProps) {
   const twoPaneLayout = splitForViewport(viewport);
   return (
     <nav className="toolbar" aria-label="地図表示ツール">
@@ -29,7 +31,7 @@ export function LayoutToolbar({ activeLayout, viewport, onChange }: LayoutToolba
           4画面
         </button>
       </div>
+      <PresetControl onApply={onPreset} />
     </nav>
   );
 }
-
