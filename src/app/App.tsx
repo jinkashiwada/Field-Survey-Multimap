@@ -16,6 +16,10 @@ import { GisPanel } from '../components/layers/GisPanel';
 import { parseGisFile, downloadExport } from '../services/import-export/files';
 import type { Extent } from 'ol/extent';
 import { fromLonLat } from 'ol/proj';
+import { useHashState } from '../hooks/useHashState';
+import { copyCurrentUrl } from '../services/clipboard';
+import { ShareFallbackDialog } from '../components/toolbar/ShareFallbackDialog';
+import { SettingsPanel } from '../components/toolbar/SettingsPanel';
 
 function AppContent() {
   const { state, dispatch, sharedView, locationSource, pinSource, gisSource } = useAppContext();
@@ -24,12 +28,22 @@ function AppContent() {
   const [gisPanelOpen, setGisPanelOpen] = useState(false);
   const [gisCount, setGisCount] = useState(0);
   const [gisExtent, setGisExtent] = useState<Extent | null>(null);
+  const [shareFallbackOpen, setShareFallbackOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const tileErrorTimesRef = useRef(new Map<string, number>());
   const effectiveLayout = normalizeLayout(state.layout, viewport);
-  const reportTileError = useCallback((message: string) => dispatch({ type: 'notify', message }), [dispatch]);
+  const reportTileError = useCallback((message: string) => {
+    const now = Date.now();
+    const previous = tileErrorTimesRef.current.get(message) ?? 0;
+    if (now - previous < 30_000) return;
+    tileErrorTimesRef.current.set(message, now);
+    dispatch({ type: 'notify', message });
+  }, [dispatch]);
   const { status: centerStatus, updateAfterMove } = useCenterStatus(sharedView);
   const { status: locationStatus, locate } = useGeolocation(sharedView, locationSource);
   const { pins, addPin, updatePin, deletePin, clearPins } = usePins(pinSource);
+  useHashState(state, sharedView);
   const selectFeature = useCallback((message: string) => dispatch({ type: 'notify', message }), [dispatch]);
 
   const importFiles = useCallback(async (files: FileList | File[]) => {
@@ -100,6 +114,13 @@ function AppContent() {
         onImport={() => { setGisPanelOpen(true); fileInputRef.current?.click(); }}
         onExportKml={() => exportAll('kml')}
         onExportGeoJson={() => exportAll('geojson')}
+        onShare={() => {
+          void copyCurrentUrl().then((copied) => {
+            if (copied) dispatch({ type: 'notify', message: '表示URLをコピーしました。' });
+            else setShareFallbackOpen(true);
+          });
+        }}
+        onSettings={() => setSettingsOpen(true)}
       />
       <input
         ref={fileInputRef}
@@ -158,6 +179,8 @@ function AppContent() {
         onFit={() => { if (gisExtent) sharedView.fit(gisExtent, { padding: [80, 80, 80, 80], maxZoom: 17, duration: 450 }); }}
         onClear={() => { gisSource.clear(); setGisCount(0); setGisExtent(null); }}
       />
+      <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <ShareFallbackDialog open={shareFallbackOpen} onClose={() => setShareFallbackOpen(false)} />
     </main>
   );
 }

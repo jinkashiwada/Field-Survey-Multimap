@@ -5,6 +5,7 @@ import VectorSource from 'ol/source/Vector';
 import Feature from 'ol/Feature';
 import type Geometry from 'ol/geom/Geometry';
 import { appReducer, initialAppState, type AppAction, type AppState } from './appState';
+import { parseUrlState } from '../services/urlState';
 
 interface AppContextValue {
   state: AppState;
@@ -18,16 +19,22 @@ interface AppContextValue {
 const AppContext = createContext<AppContextValue | null>(null);
 
 export function AppProvider({ children }: { children: ReactNode }) {
-  const [state, dispatch] = useReducer(appReducer, initialAppState);
+  const urlState = useMemo(() => parseUrlState(window.location.hash), []);
+  const [state, dispatch] = useReducer(appReducer, {
+    ...initialAppState,
+    layout: urlState.layout,
+    panes: urlState.panes,
+  });
   const sharedView = useMemo(
     () =>
       new View({
-        center: fromLonLat([139.908, 35.918]),
-        zoom: 14,
+        center: fromLonLat([urlState.longitude, urlState.latitude]),
+        zoom: urlState.zoom,
+        rotation: urlState.rotation,
         minZoom: 2,
         maxZoom: 20,
       }),
-    [],
+    [urlState],
   );
   const locationSource = useMemo(() => new VectorSource<Feature<Geometry>>(), []);
   const pinSource = useMemo(() => new VectorSource<Feature<Geometry>>(), []);

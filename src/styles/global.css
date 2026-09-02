@@ -20,7 +20,7 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
 .app-titlebar { padding: 0.85rem 1.25rem; color: white; background: #173f5f; }
 .app-titlebar h1 { margin: 0; font-size: clamp(1.1rem, 3vw, 1.55rem); }
 .eyebrow { margin: 0 0 0.2rem; color: #b7d8e8; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; }
-.toolbar { display: flex; align-items: center; gap: 0.5rem; padding: 0.45rem 0.65rem; background: #fff; border-bottom: 1px solid #b7c6ce; }
+.toolbar { display: flex; align-items: center; gap: 0.5rem; padding: 0.45rem 0.65rem; overflow-x: auto; background: #fff; border-bottom: 1px solid #b7c6ce; }
 .toolbar-group { display: flex; gap: 0.35rem; }
 .toolbar button, .notice button { min-width: 44px; min-height: 44px; border: 1px solid #93a7b2; border-radius: 0.45rem; background: #fff; color: #173f5f; font-weight: 700; cursor: pointer; }
 .toolbar button[aria-pressed="true"] { color: #fff; background: #1d6687; border-color: #1d6687; }
@@ -50,7 +50,7 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
 .preset-control { display: flex; align-items: center; gap: 0.4rem; margin-left: auto; font-size: 0.85rem; font-weight: 700; }
 .preset-control select, .layer-controls select { min-height: 40px; border: 1px solid #93a7b2; border-radius: 0.35rem; background: #fff; color: #153243; }
 .layer-controls { position: relative; color: #153243; }
-.layer-controls > summary { display: grid; place-items: center; min-width: 76px; min-height: 36px; padding: 0 0.5rem; border-radius: 0.35rem; color: #153243; background: #fff; cursor: pointer; font-weight: 700; list-style: none; }
+.layer-controls > summary { display: grid; place-items: center; min-width: 76px; min-height: 44px; padding: 0 0.5rem; border-radius: 0.35rem; color: #153243; background: #fff; cursor: pointer; font-weight: 700; list-style: none; }
 .layer-controls > summary::-webkit-details-marker { display: none; }
 .layer-controls-panel { position: absolute; z-index: 12; top: calc(100% + 0.35rem); right: 0; width: min(390px, calc(100vw - 1rem)); max-height: min(70vh, 620px); overflow: auto; padding: 0.75rem; border: 1px solid #9fb0b8; border-radius: 0.55rem; background: #fff; box-shadow: 0 8px 28px rgb(0 0 0 / 28%); }
 .layer-controls-panel > label { display: grid; gap: 0.3rem; }
@@ -85,6 +85,13 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
 .drop-zone { display: grid; place-items: center; gap: 0.55rem; min-height: 210px; margin-top: 1rem; padding: 1rem; border: 2px dashed #4c899f; border-radius: 0.65rem; text-align: center; background: #eaf4f7; }
 .drop-zone p { margin: 0; font-weight: 700; }
 .drawer-note { color: #48636f; font-size: 0.82rem; }
+.source-list { display: grid; gap: 0.55rem; padding-left: 1.2rem; }
+.source-list a { color: #075c85; }
+.dialog-backdrop { position: fixed; z-index: 50; inset: 0; display: grid; place-items: center; padding: 1rem; background: rgb(0 0 0 / 52%); }
+.share-dialog { width: min(560px, 100%); padding: 1rem; border-radius: 0.7rem; color: #153243; background: #fff; box-shadow: 0 10px 36px rgb(0 0 0 / 35%); }
+.share-dialog h2 { margin-top: 0; }
+.share-dialog input { width: 100%; min-height: 44px; padding: 0.5rem; border: 1px solid #7e929d; border-radius: 0.35rem; }
+.share-dialog button { min-width: 80px; min-height: 44px; margin-top: 0.75rem; border: 1px solid #1d6687; border-radius: 0.4rem; color: #fff; background: #1d6687; font-weight: 700; }
 
 @media (max-width: 640px) {
   .app-titlebar { padding: 0.55rem 0.75rem; }

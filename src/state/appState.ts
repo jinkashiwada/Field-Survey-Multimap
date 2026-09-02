@@ -75,7 +75,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       };
     }
     case 'notify':
-      return { ...state, notice: action.message };
+      return state.notice === action.message ? state : { ...state, notice: action.message };
     case 'clear-notice':
       return { ...state, notice: null };
   }
