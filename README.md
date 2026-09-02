@@ -2,6 +2,8 @@
 
 水害時の痕跡調査、事前調査、現地踏査を行う研究者・学生・技術者向けに、国土地理院とハザードマップポータルの地理空間情報を複数画面で同期比較する静的Webアプリケーションです。Version 0.1はバックエンド、認証、APIキーを使用せず、GitHub Pagesだけで動作します。
 
+公開版：<https://jinkashiwada.github.io/Field-Survey-Multimap/>
+
 ## 主な機能
 
 - 1画面、同期2画面、PC・広いタブレットでの同期4画面
@@ -58,6 +60,8 @@ npm run build
 「ファイル読込み」または表示パネルへのドロップで、EPSG:4326のKML・GeoJSONを読み込みます。最大20 MB・50,000地物で、KMZと外部URLは対象外です。「全地物へ移動」は読込み後に利用者が選択します。KML／GeoJSON出力は、保存ピンと読み込んだ地物をまとめてEPSG:4326で保存します。
 
 ## GitHub Pagesへ公開する
+
+このリポジトリの公開URLは <https://jinkashiwada.github.io/Field-Survey-Multimap/> です。
 
 1. GitHubへリポジトリを作成し、このブランチをpushしてmainへ反映します。
 2. GitHubの **Settings → Pages → Source → GitHub Actions** を選択します。
