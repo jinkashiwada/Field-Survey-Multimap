@@ -3,6 +3,9 @@ import type { MapLayout } from '../../domain/layout';
 import type { PaneLayerState } from '../../domain/layers';
 import { paneCountForLayout } from '../../utils/layout';
 import { MapPane } from './MapPane';
+import type VectorSource from 'ol/source/Vector';
+import type Feature from 'ol/Feature';
+import type Geometry from 'ol/geom/Geometry';
 
 interface MapGridProps {
   layout: MapLayout;
@@ -12,9 +15,11 @@ interface MapGridProps {
   onOverlayToggle: (paneIndex: number, id: string) => void;
   onOpacityChange: (paneIndex: number, id: string, opacity: number) => void;
   onTileError: (message: string) => void;
+  onMoveEnd: () => void;
+  locationSource: VectorSource<Feature<Geometry>>;
 }
 
-export function MapGrid({ layout, view, panes, onBaseChange, onOverlayToggle, onOpacityChange, onTileError }: MapGridProps) {
+export function MapGrid({ layout, view, panes, onBaseChange, onOverlayToggle, onOpacityChange, onTileError, onMoveEnd, locationSource }: MapGridProps) {
   const paneCount = paneCountForLayout(layout);
   return (
     <div className={`map-grid map-grid--${layout}`} data-layout={layout}>
@@ -28,6 +33,8 @@ export function MapGrid({ layout, view, panes, onBaseChange, onOverlayToggle, on
           onOverlayToggle={(id) => onOverlayToggle(index, id)}
           onOpacityChange={(id, opacity) => onOpacityChange(index, id, opacity)}
           onTileError={onTileError}
+          onMoveEnd={onMoveEnd}
+          locationSource={locationSource}
         />
       ))}
     </div>

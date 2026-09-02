@@ -1,12 +1,16 @@
 import { createContext, useContext, useMemo, useReducer, type Dispatch, type ReactNode } from 'react';
 import View from 'ol/View';
 import { fromLonLat } from 'ol/proj';
+import VectorSource from 'ol/source/Vector';
+import Feature from 'ol/Feature';
+import type Geometry from 'ol/geom/Geometry';
 import { appReducer, initialAppState, type AppAction, type AppState } from './appState';
 
 interface AppContextValue {
   state: AppState;
   dispatch: Dispatch<AppAction>;
   sharedView: View;
+  locationSource: VectorSource<Feature<Geometry>>;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -23,7 +27,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }),
     [],
   );
-  const value = useMemo(() => ({ state, dispatch, sharedView }), [state, sharedView]);
+  const locationSource = useMemo(() => new VectorSource<Feature<Geometry>>(), []);
+  const value = useMemo(() => ({ state, dispatch, sharedView, locationSource }), [state, sharedView, locationSource]);
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }
 
@@ -33,4 +38,3 @@ export function useAppContext(): AppContextValue {
   if (!context) throw new Error('useAppContext must be used inside AppProvider.');
   return context;
 }
-

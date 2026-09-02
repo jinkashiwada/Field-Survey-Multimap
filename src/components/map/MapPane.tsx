@@ -3,11 +3,16 @@ import OlMap from 'ol/Map';
 import type View from 'ol/View';
 import LayerGroup from 'ol/layer/Group';
 import Collection from 'ol/Collection';
+import VectorLayer from 'ol/layer/Vector';
+import type VectorSource from 'ol/source/Vector';
+import type Feature from 'ol/Feature';
+import type Geometry from 'ol/geom/Geometry';
 import { defaults as defaultControls } from 'ol/control/defaults';
 import type { PaneLayerState } from '../../domain/layers';
 import { layerById } from '../../config/layers';
 import { createRasterLayer, getSharedXyzSource } from '../../services/mapLayers';
 import { PaneLayerControls } from '../layers/PaneLayerControls';
+import { locationStyle } from '../../services/locationStyle';
 
 interface MapPaneProps {
   index: number;
@@ -17,9 +22,11 @@ interface MapPaneProps {
   onOverlayToggle: (id: string) => void;
   onOpacityChange: (id: string, opacity: number) => void;
   onTileError: (message: string) => void;
+  onMoveEnd: () => void;
+  locationSource: VectorSource<Feature<Geometry>>;
 }
 
-export function MapPane({ index, view, config, onBaseChange, onOverlayToggle, onOpacityChange, onTileError }: MapPaneProps) {
+export function MapPane({ index, view, config, onBaseChange, onOverlayToggle, onOpacityChange, onTileError, onMoveEnd, locationSource }: MapPaneProps) {
   const targetRef = useRef<HTMLDivElement>(null);
   const rasterGroupRef = useRef(new LayerGroup());
 
@@ -29,19 +36,21 @@ export function MapPane({ index, view, config, onBaseChange, onOverlayToggle, on
 
     const map = new OlMap({
       target,
-      layers: [rasterGroupRef.current],
+      layers: [rasterGroupRef.current, new VectorLayer({ source: locationSource, style: locationStyle, zIndex: 50 })],
       view,
       controls: defaultControls({ rotate: false, attributionOptions: { collapsible: true } }),
     });
     const observer = new ResizeObserver(() => map.updateSize());
+    map.on('moveend', onMoveEnd);
     observer.observe(target);
     requestAnimationFrame(() => map.updateSize());
 
     return () => {
       observer.disconnect();
+      map.un('moveend', onMoveEnd);
       map.setTarget(undefined);
     };
-  }, [view]);
+  }, [locationSource, onMoveEnd, view]);
 
   useEffect(() => {
     const definitions = [config.baseLayerId, ...config.overlayLayerIds]

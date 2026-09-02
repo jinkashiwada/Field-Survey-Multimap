@@ -8,9 +8,11 @@ interface LayoutToolbarProps {
   viewport: ViewportSize;
   onChange: (layout: MapLayout) => void;
   onPreset: (id: string) => void;
+  onLocate: () => void;
+  locationLoading: boolean;
 }
 
-export function LayoutToolbar({ activeLayout, viewport, onChange, onPreset }: LayoutToolbarProps) {
+export function LayoutToolbar({ activeLayout, viewport, onChange, onPreset, onLocate, locationLoading }: LayoutToolbarProps) {
   const twoPaneLayout = splitForViewport(viewport);
   return (
     <nav className="toolbar" aria-label="地図表示ツール">
@@ -32,6 +34,9 @@ export function LayoutToolbar({ activeLayout, viewport, onChange, onPreset }: La
         </button>
       </div>
       <PresetControl onApply={onPreset} />
+      <button type="button" onClick={onLocate} disabled={locationLoading} aria-label="現在地を取得して表示">
+        {locationLoading ? '取得中…' : '現在地'}
+      </button>
     </nav>
   );
 }

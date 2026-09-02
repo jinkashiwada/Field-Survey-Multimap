@@ -40,6 +40,12 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
 .center-crosshair::before, .center-crosshair::after { content: ""; position: absolute; background: #d7191c; }
 .center-crosshair::before { top: 13px; left: 0; width: 28px; height: 2px; }
 .center-crosshair::after { top: 0; left: 13px; width: 2px; height: 28px; }
+.center-status { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 0.5rem 1rem; padding: 0.35rem 0.65rem; color: #fff; background: #153243; font-size: 0.78rem; }
+.center-status dl { display: flex; flex-wrap: wrap; gap: 0.35rem 1rem; margin: 0; }
+.center-status dl div { display: flex; gap: 0.3rem; }
+.center-status dt { color: #b7d8e8; font-weight: 700; }
+.center-status dd { margin: 0; font-variant-numeric: tabular-nums; }
+.center-status p { margin: 0; color: #d6e3e9; font-size: 0.68rem; }
 .preset-control { display: flex; align-items: center; gap: 0.4rem; margin-left: auto; font-size: 0.85rem; font-weight: 700; }
 .preset-control select, .layer-controls select { min-height: 40px; border: 1px solid #93a7b2; border-radius: 0.35rem; background: #fff; color: #153243; }
 .layer-controls { position: relative; color: #153243; }
@@ -65,5 +71,7 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
   .preset-control span { display: none; }
   .preset-control { margin-left: 0; }
   .layer-controls-panel { position: fixed; inset: auto 0 0 0; width: 100%; max-height: 72dvh; border-radius: 1rem 1rem 0 0; padding-bottom: calc(1rem + env(safe-area-inset-bottom)); }
+  .center-status { grid-template-columns: 1fr; }
+  .center-status p { display: none; }
   .pane-header { min-height: 32px; font-size: 0.84rem; }
 }
