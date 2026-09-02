@@ -9,6 +9,7 @@ React 19、TypeScript、Vite、OpenLayers本体、CSS Gridで構成する1ペー
 - ペインごとに別の `Map`、TileLayer、VectorLayerを作る。
 - 全Mapが同じ `View` を参照して中心、解像度、ズーム、回転を完全同期する。
 - XYZ SourceはレイヤーID単位のキャッシュで共有し、4画面時の同一タイル要求を再利用する。
+- 道路・鉄道・河川・等高線は、公式試験公開MVTのVectorTileSourceを共有し、Mapごと・用途ごとに別のVectorTileLayerとスタイルを持つ。
 - ピン、現在地、読込みGISは用途別の共有VectorSourceを持ち、Mapごとに別のVectorLayerから描画する。
 - ペインのResizeObserverで `updateSize()` を呼び、unmount時はobserver・イベントを解除して `setTarget(undefined)` とする。
 - Raster、GIS、ピン、現在地はz-index順の別レイヤーとし、一つのタイル障害が他を止めない。
@@ -19,9 +20,17 @@ React 19、TypeScript、Vite、OpenLayers本体、CSS Gridで構成する1ペー
 
 ピンは `flood-multimap:pins:v1` へJSON保存する。破損・旧形式は空配列へフォールバックする。KML・GeoJSONはメモリー上だけに保持し、ページ再読込み時には消える。現在地・ピン・GIS地物はhashへ保存しない。
 
-## DEM
+## DEMと可変標高配色
 
 中心緯度経度からWeb MercatorのXYZ・256px内座標を求め、DEM1A、5A、5B、5C、10Bの順でPNGを取得する。RGBを公式式で復号し、NA・HTTP・CORS・画像復号失敗は次候補または「取得不可」へフォールバックする。AbortControllerが古い移動の要求を破棄し、タイルPromiseキャッシュが同一取得を再利用する。
+
+「解析用色別標高図」は、広域で欠測しにくく処理量を一定にしやすいDEM10Bを使う。取得した256pxタイルをCanvasで一度だけ復号・再配色し、通常のTileLayerとしてキャッシュする。地図の描画フレームごとに全画面を再計算するWebGL/raster演算は行わない。レンジ変更時は新しいSourceへ切り替え、保持するレンジ別Sourceキャッシュは最大8個、各Sourceのタイルキャッシュは128枚とする。
+
+「表示範囲から推定」は利用者がボタンを押した時だけ、表示範囲の4×4＝16地点でDEM10Bを標本抽出する。頑健な概算範囲を返す機能であり、pan・zoomには自動追従しない。レンジはhashへ保存する。等高線は端末でDEMから計算せず、試験公開MVTの既成線を既定オフで表示する。
+
+## 操作時の更新量
+
+中心座標・hash・標高はmoveend後だけ更新する。河川名ホバーは各ペイン内で `requestAnimationFrame` により高々1フレーム1回へ抑制し、ツールチップDOMだけを更新してReact全体を再描画しない。右クリック／長押しメニューとローカル検索は利用者操作時だけ動作する。
 
 ## 責務分離
 
