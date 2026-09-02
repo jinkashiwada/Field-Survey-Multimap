@@ -1,4 +1,24 @@
-export function App() {
+import { useEffect } from 'react';
+import { MapGrid } from '../components/map/MapGrid';
+import { LayoutToolbar } from '../components/toolbar/LayoutToolbar';
+import { useViewport } from '../hooks/useViewport';
+import { AppProvider, useAppContext } from '../state/AppContext';
+import { normalizeLayout } from '../utils/layout';
+
+function AppContent() {
+  const { state, dispatch, sharedView } = useAppContext();
+  const viewport = useViewport();
+  const effectiveLayout = normalizeLayout(state.layout, viewport);
+
+  useEffect(() => {
+    if (state.layout === 'quad' && effectiveLayout !== 'quad') {
+      dispatch({ type: 'set-layout', layout: effectiveLayout });
+      dispatch({ type: 'notify', message: 'この画面サイズでは4画面を表示できないため、2画面へ切り替えました。' });
+    } else if (state.layout !== effectiveLayout) {
+      dispatch({ type: 'set-layout', layout: effectiveLayout });
+    }
+  }, [dispatch, effectiveLayout, state.layout]);
+
   return (
     <main className="app-shell">
       <header className="app-titlebar">
@@ -7,11 +27,26 @@ export function App() {
           <h1>水害調査マルチマップ</h1>
         </div>
       </header>
-      <section className="empty-state" aria-label="地図読み込み準備中">
-        <h2>地図ビューアーを準備しています</h2>
-        <p>複数の公式地図を同期して比較する静的Webアプリケーションです。</p>
-      </section>
+      <LayoutToolbar
+        activeLayout={effectiveLayout}
+        viewport={viewport}
+        onChange={(layout) => dispatch({ type: 'set-layout', layout })}
+      />
+      {state.notice && (
+        <div className="notice" role="status">
+          <span>{state.notice}</span>
+          <button type="button" aria-label="通知を閉じる" onClick={() => dispatch({ type: 'clear-notice' })}>×</button>
+        </div>
+      )}
+      <MapGrid layout={effectiveLayout} view={sharedView} />
     </main>
   );
 }
 
+export function App() {
+  return (
+    <AppProvider>
+      <AppContent />
+    </AppProvider>
+  );
+}
