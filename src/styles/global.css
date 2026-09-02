@@ -7,6 +7,7 @@
 }
 
 * { box-sizing: border-box; }
+.visually-hidden { position: absolute !important; width: 1px !important; height: 1px !important; overflow: hidden !important; clip: rect(0 0 0 0) !important; white-space: nowrap !important; }
 html, body, #root { width: 100%; min-width: 320px; min-height: 100%; margin: 0; }
 body { min-height: 100dvh; }
 button, select, input, textarea { font: inherit; }
@@ -63,6 +64,27 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
 .layer-links p { margin: 0.15rem 0; font-size: 0.8rem; }
 .layer-links a { color: #075c85; }
 .ol-attribution { max-width: calc(100% - 0.5rem); font-size: 0.68rem; }
+.data-drawer { position: fixed; z-index: 30; top: 0; right: 0; width: min(420px, 100vw); height: 100dvh; overflow: auto; padding: 0 0.85rem calc(1rem + env(safe-area-inset-bottom)); background: #f8fbfc; border-left: 1px solid #9fb0b8; box-shadow: -8px 0 28px rgb(0 0 0 / 24%); }
+.data-drawer > header { position: sticky; z-index: 2; top: 0; display: flex; align-items: center; justify-content: space-between; min-height: 58px; background: #f8fbfc; border-bottom: 1px solid #cad5da; }
+.data-drawer h2 { margin: 0; font-size: 1.1rem; }
+.data-drawer button, .pin-form input, .pin-form select, .pin-form textarea { min-height: 44px; border: 1px solid #93a7b2; border-radius: 0.4rem; background: #fff; color: #153243; }
+.data-drawer button { padding: 0.45rem 0.7rem; cursor: pointer; font-weight: 700; }
+.data-drawer button:disabled { opacity: 0.45; cursor: not-allowed; }
+.pin-form { display: grid; gap: 0.65rem; padding: 0.75rem 0; border-bottom: 1px solid #cad5da; }
+.pin-form p { margin: 0; font-weight: 700; }
+.pin-form label { display: grid; gap: 0.25rem; }
+.pin-form input, .pin-form select, .pin-form textarea { width: 100%; padding: 0.45rem; }
+.form-actions { display: flex; flex-wrap: wrap; gap: 0.45rem; }
+.form-actions button:first-child { color: #fff; background: #1d6687; border-color: #1d6687; }
+.pin-list-header { display: flex; align-items: center; justify-content: space-between; padding: 0.7rem 0; }
+.pin-list { display: grid; gap: 0.55rem; margin: 0; padding: 0; list-style: none; }
+.pin-list li { display: grid; grid-template-columns: 1fr auto; gap: 0.2rem 0.5rem; padding: 0.65rem; border: 1px solid #cad5da; border-radius: 0.45rem; background: #fff; }
+.pin-list small, .pin-list p, .pin-list li > div { grid-column: 1 / -1; }
+.pin-list p { margin: 0.2rem 0; white-space: pre-wrap; }
+.pin-list li > div { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.drop-zone { display: grid; place-items: center; gap: 0.55rem; min-height: 210px; margin-top: 1rem; padding: 1rem; border: 2px dashed #4c899f; border-radius: 0.65rem; text-align: center; background: #eaf4f7; }
+.drop-zone p { margin: 0; font-weight: 700; }
+.drawer-note { color: #48636f; font-size: 0.82rem; }
 
 @media (max-width: 640px) {
   .app-titlebar { padding: 0.55rem 0.75rem; }

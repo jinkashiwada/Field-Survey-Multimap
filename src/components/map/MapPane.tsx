@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import OlMap from 'ol/Map';
+import type MapBrowserEvent from 'ol/MapBrowserEvent';
 import type View from 'ol/View';
 import LayerGroup from 'ol/layer/Group';
 import Collection from 'ol/Collection';
@@ -13,6 +14,7 @@ import { layerById } from '../../config/layers';
 import { createRasterLayer, getSharedXyzSource } from '../../services/mapLayers';
 import { PaneLayerControls } from '../layers/PaneLayerControls';
 import { locationStyle } from '../../services/locationStyle';
+import { featureDisplayName, gisStyle, pinStyle } from '../../services/vectorStyles';
 
 interface MapPaneProps {
   index: number;
@@ -24,9 +26,12 @@ interface MapPaneProps {
   onTileError: (message: string) => void;
   onMoveEnd: () => void;
   locationSource: VectorSource<Feature<Geometry>>;
+  pinSource: VectorSource<Feature<Geometry>>;
+  gisSource: VectorSource<Feature<Geometry>>;
+  onFeatureSelect: (name: string) => void;
 }
 
-export function MapPane({ index, view, config, onBaseChange, onOverlayToggle, onOpacityChange, onTileError, onMoveEnd, locationSource }: MapPaneProps) {
+export function MapPane({ index, view, config, onBaseChange, onOverlayToggle, onOpacityChange, onTileError, onMoveEnd, locationSource, pinSource, gisSource, onFeatureSelect }: MapPaneProps) {
   const targetRef = useRef<HTMLDivElement>(null);
   const rasterGroupRef = useRef(new LayerGroup());
 
@@ -36,21 +41,36 @@ export function MapPane({ index, view, config, onBaseChange, onOverlayToggle, on
 
     const map = new OlMap({
       target,
-      layers: [rasterGroupRef.current, new VectorLayer({ source: locationSource, style: locationStyle, zIndex: 50 })],
+      layers: [
+        rasterGroupRef.current,
+        new VectorLayer({ source: gisSource, style: gisStyle, zIndex: 30 }),
+        new VectorLayer({ source: pinSource, style: pinStyle, zIndex: 40 }),
+        new VectorLayer({ source: locationSource, style: locationStyle, zIndex: 50 }),
+      ],
       view,
       controls: defaultControls({ rotate: false, attributionOptions: { collapsible: true } }),
     });
     const observer = new ResizeObserver(() => map.updateSize());
     map.on('moveend', onMoveEnd);
+    const selectFeature = (event: unknown) => {
+      const mapEvent = event as MapBrowserEvent<PointerEvent>;
+      const feature = map.forEachFeatureAtPixel(mapEvent.pixel, (candidate) => candidate);
+      if (feature) {
+        const name = featureDisplayName(feature);
+        if (name) onFeatureSelect(`選択地物：${name}`);
+      }
+    };
+    map.on('singleclick', selectFeature);
     observer.observe(target);
     requestAnimationFrame(() => map.updateSize());
 
     return () => {
       observer.disconnect();
       map.un('moveend', onMoveEnd);
+      map.un('singleclick', selectFeature);
       map.setTarget(undefined);
     };
-  }, [locationSource, onMoveEnd, view]);
+  }, [gisSource, locationSource, onFeatureSelect, onMoveEnd, pinSource, view]);
 
   useEffect(() => {
     const definitions = [config.baseLayerId, ...config.overlayLayerIds]

@@ -17,9 +17,12 @@ interface MapGridProps {
   onTileError: (message: string) => void;
   onMoveEnd: () => void;
   locationSource: VectorSource<Feature<Geometry>>;
+  pinSource: VectorSource<Feature<Geometry>>;
+  gisSource: VectorSource<Feature<Geometry>>;
+  onFeatureSelect: (name: string) => void;
 }
 
-export function MapGrid({ layout, view, panes, onBaseChange, onOverlayToggle, onOpacityChange, onTileError, onMoveEnd, locationSource }: MapGridProps) {
+export function MapGrid({ layout, view, panes, onBaseChange, onOverlayToggle, onOpacityChange, onTileError, onMoveEnd, locationSource, pinSource, gisSource, onFeatureSelect }: MapGridProps) {
   const paneCount = paneCountForLayout(layout);
   return (
     <div className={`map-grid map-grid--${layout}`} data-layout={layout}>
@@ -35,6 +38,9 @@ export function MapGrid({ layout, view, panes, onBaseChange, onOverlayToggle, on
           onTileError={onTileError}
           onMoveEnd={onMoveEnd}
           locationSource={locationSource}
+          pinSource={pinSource}
+          gisSource={gisSource}
+          onFeatureSelect={onFeatureSelect}
         />
       ))}
     </div>

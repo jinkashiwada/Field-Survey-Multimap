@@ -10,9 +10,13 @@ interface LayoutToolbarProps {
   onPreset: (id: string) => void;
   onLocate: () => void;
   locationLoading: boolean;
+  onAddPin: () => void;
+  onImport: () => void;
+  onExportKml: () => void;
+  onExportGeoJson: () => void;
 }
 
-export function LayoutToolbar({ activeLayout, viewport, onChange, onPreset, onLocate, locationLoading }: LayoutToolbarProps) {
+export function LayoutToolbar({ activeLayout, viewport, onChange, onPreset, onLocate, locationLoading, onAddPin, onImport, onExportKml, onExportGeoJson }: LayoutToolbarProps) {
   const twoPaneLayout = splitForViewport(viewport);
   return (
     <nav className="toolbar" aria-label="地図表示ツール">
@@ -37,6 +41,10 @@ export function LayoutToolbar({ activeLayout, viewport, onChange, onPreset, onLo
       <button type="button" onClick={onLocate} disabled={locationLoading} aria-label="現在地を取得して表示">
         {locationLoading ? '取得中…' : '現在地'}
       </button>
+      <button type="button" onClick={onAddPin}>ピン追加</button>
+      <button type="button" onClick={onImport}>ファイル読込み</button>
+      <button type="button" onClick={onExportKml}>KML出力</button>
+      <button type="button" onClick={onExportGeoJson}>GeoJSON出力</button>
     </nav>
   );
 }

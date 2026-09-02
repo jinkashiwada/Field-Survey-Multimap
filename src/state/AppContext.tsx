@@ -11,6 +11,8 @@ interface AppContextValue {
   dispatch: Dispatch<AppAction>;
   sharedView: View;
   locationSource: VectorSource<Feature<Geometry>>;
+  pinSource: VectorSource<Feature<Geometry>>;
+  gisSource: VectorSource<Feature<Geometry>>;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -28,7 +30,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [],
   );
   const locationSource = useMemo(() => new VectorSource<Feature<Geometry>>(), []);
-  const value = useMemo(() => ({ state, dispatch, sharedView, locationSource }), [state, sharedView, locationSource]);
+  const pinSource = useMemo(() => new VectorSource<Feature<Geometry>>(), []);
+  const gisSource = useMemo(() => new VectorSource<Feature<Geometry>>(), []);
+  const value = useMemo(
+    () => ({ state, dispatch, sharedView, locationSource, pinSource, gisSource }),
+    [state, sharedView, locationSource, pinSource, gisSource],
+  );
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }
 
