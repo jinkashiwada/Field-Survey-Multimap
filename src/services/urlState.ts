@@ -14,6 +14,7 @@ function defaultPanes(): PaneLayerState[] {
       overlayLayerIds: [],
       opacityByLayerId: { [baseLayerId]: 1 },
       elevationColorRange: { minimum: 0, maximum: 20 },
+      autoElevationRange: false,
     };
   });
 }
@@ -61,7 +62,8 @@ function parsePane(params: URLSearchParams, index: number, fallback: PaneLayerSt
   const elevationColorRange = maximum > minimum
     ? { minimum, maximum }
     : fallback.elevationColorRange;
-  return { baseLayerId, overlayLayerIds, opacityByLayerId, elevationColorRange };
+  const autoElevationRange = params.get(`ae${index}`) === '1';
+  return { baseLayerId, overlayLayerIds, opacityByLayerId, elevationColorRange, autoElevationRange };
 }
 
 export function parseUrlState(hash: string): UrlMapState {
@@ -93,6 +95,7 @@ export function serializeUrlState(state: UrlMapState): string {
     params.set(`a${index}`, (pane.opacityByLayerId[pane.baseLayerId] ?? 1).toFixed(2));
     if (pane.baseLayerId === 'gsi-relief-custom') {
       params.set(`e${index}`, `${pane.elevationColorRange.minimum.toFixed(1)}:${pane.elevationColorRange.maximum.toFixed(1)}`);
+      if (pane.autoElevationRange) params.set(`ae${index}`, '1');
     }
     if (pane.overlayLayerIds.length > 0) {
       params.set(`o${index}`, pane.overlayLayerIds

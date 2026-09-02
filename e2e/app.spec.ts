@@ -62,13 +62,29 @@ test('表示hashを再読込みすると状態が復元される', async ({ page
   await expect(page.getByRole('button', { name: '1画面' })).toHaveAttribute('aria-pressed', 'true');
 });
 
-test('解析用色別標高図の低平地レンジをURLへ保存できる', async ({ page }) => {
+test('解析用色別標高図の常設操作と自動推定を利用できる', async ({ page }) => {
+  await page.route(/https:\/\/cyberjapandata\.gsi\.go\.jp\/xyz\/dem_png\//, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'image/png',
+      body: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64'),
+    });
+  });
   await page.goto('/');
   await page.getByLabel('画面1のレイヤー設定').click();
   await page.getByLabel('背景地図').first().selectOption('gsi-relief-custom');
-  await page.getByRole('button', { name: '低平地 0～10m' }).click();
-  await expect.poll(() => new URL(page.url()).hash).toContain('e0=0.0%3A10.0');
+  await page.getByLabel('最低（m）').fill('3');
+  await page.getByLabel('最高（m）').fill('22');
+  await page.getByRole('button', { name: '適用' }).click();
+  await expect.poll(() => new URL(page.url()).hash).toContain('e0=3.0%3A22.0');
+  await expect(page.getByRole('button', { name: '表示範囲から配色レンジを推定' })).toBeVisible();
+  await page.getByLabel('移動後に自動推定').check();
+  await expect.poll(() => new URL(page.url()).hash).toContain('ae0=1');
   await expect(page.getByText(/再配色は新しい256pxタイル/)).toBeVisible();
+  await page.getByLabel('画面1のレイヤー設定').click();
+  await page.locator('.map-target').first().hover();
+  await page.mouse.wheel(0, -500);
+  await expect.poll(() => decodeURIComponent(new URL(page.url()).hash), { timeout: 10_000 }).not.toContain('e0=3.0:22.0');
 });
 
 test('右クリック地点へピンを追加できる', async ({ page }) => {

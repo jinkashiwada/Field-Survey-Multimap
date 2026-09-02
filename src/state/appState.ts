@@ -15,6 +15,7 @@ export type AppAction =
   | { type: 'toggle-overlay'; paneIndex: number; layerId: string }
   | { type: 'set-opacity'; paneIndex: number; layerId: string; opacity: number }
   | { type: 'set-elevation-range'; paneIndex: number; range: ElevationColorRange }
+  | { type: 'set-auto-elevation-range'; paneIndex: number; enabled: boolean }
   | { type: 'apply-preset'; preset: PresetDefinition; paneLimit?: number }
   | { type: 'notify'; message: string; preserveExisting?: boolean }
   | { type: 'clear-notice' };
@@ -27,11 +28,16 @@ export const initialAppState: AppState = {
     overlayLayerIds: [],
     opacityByLayerId: { [index === 1 ? 'gsi-seamlessphoto' : 'gsi-std']: 1 },
     elevationColorRange: { minimum: 0, maximum: 20 },
+    autoElevationRange: false,
   })),
 };
 
 function updatePane(state: AppState, paneIndex: number, update: (pane: PaneLayerState) => PaneLayerState): AppState {
-  return { ...state, panes: state.panes.map((pane, index) => index === paneIndex ? update(pane) : pane) };
+  const current = state.panes[paneIndex];
+  if (!current) return state;
+  const updated = update(current);
+  if (updated === current) return state;
+  return { ...state, panes: state.panes.map((pane, index) => index === paneIndex ? updated : pane) };
 }
 
 export function appReducer(state: AppState, action: AppAction): AppState {
@@ -65,12 +71,18 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         opacityByLayerId: { ...pane.opacityByLayerId, [action.layerId]: Math.min(1, Math.max(0, action.opacity)) },
       }));
     case 'set-elevation-range':
-      return updatePane(state, action.paneIndex, (pane) => ({
-        ...pane,
-        elevationColorRange: action.range.maximum > action.range.minimum
-          ? action.range
-          : pane.elevationColorRange,
-      }));
+      return action.range.maximum <= action.range.minimum
+        ? state
+        : updatePane(state, action.paneIndex, (pane) => (
+          pane.elevationColorRange.minimum === action.range.minimum
+          && pane.elevationColorRange.maximum === action.range.maximum
+            ? pane
+            : { ...pane, elevationColorRange: action.range }
+        ));
+    case 'set-auto-elevation-range':
+      return updatePane(state, action.paneIndex, (pane) => (
+        pane.autoElevationRange === action.enabled ? pane : { ...pane, autoElevationRange: action.enabled }
+      ));
     case 'apply-preset': {
       const limit = action.paneLimit ?? action.preset.panes.length;
       const selected = action.preset.panes.slice(0, limit);

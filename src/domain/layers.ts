@@ -40,4 +40,5 @@ export interface PaneLayerState {
   overlayLayerIds: string[];
   opacityByLayerId: Record<string, number>;
   elevationColorRange: ElevationColorRange;
+  autoElevationRange: boolean;
 }

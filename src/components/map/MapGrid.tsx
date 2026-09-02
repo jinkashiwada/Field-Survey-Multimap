@@ -15,10 +15,11 @@ interface MapGridProps {
   onOverlayToggle: (paneIndex: number, id: string) => void;
   onOpacityChange: (paneIndex: number, id: string, opacity: number) => void;
   onElevationRangeChange: (paneIndex: number, range: ElevationColorRange) => void;
-  onEstimateElevationRange: (paneIndex: number) => void;
-  elevationRangeLoadingPane: number | null;
+  onAutoElevationRangeChange: (paneIndex: number, enabled: boolean) => void;
+  onEstimateElevationRange: (paneIndex: number, viewportSize: readonly [number, number]) => void;
+  elevationRangeLoadingPanes: readonly number[];
   onTileError: (message: string) => void;
-  onMoveEnd: () => void;
+  onMoveEnd: (paneIndex: number, viewportSize: readonly [number, number]) => void;
   locationSource: VectorSource<Feature<Geometry>>;
   pinSource: VectorSource<Feature<Geometry>>;
   gisSource: VectorSource<Feature<Geometry>>;
@@ -26,7 +27,7 @@ interface MapGridProps {
   onRequestPinAt: (longitude: number, latitude: number) => void;
 }
 
-export function MapGrid({ layout, view, panes, onBaseChange, onOverlayToggle, onOpacityChange, onElevationRangeChange, onEstimateElevationRange, elevationRangeLoadingPane, onTileError, onMoveEnd, locationSource, pinSource, gisSource, onFeatureSelect, onRequestPinAt }: MapGridProps) {
+export function MapGrid({ layout, view, panes, onBaseChange, onOverlayToggle, onOpacityChange, onElevationRangeChange, onAutoElevationRangeChange, onEstimateElevationRange, elevationRangeLoadingPanes, onTileError, onMoveEnd, locationSource, pinSource, gisSource, onFeatureSelect, onRequestPinAt }: MapGridProps) {
   const paneCount = paneCountForLayout(layout);
   return (
     <div className={`map-grid map-grid--${layout}`} data-layout={layout}>
@@ -40,10 +41,11 @@ export function MapGrid({ layout, view, panes, onBaseChange, onOverlayToggle, on
           onOverlayToggle={(id) => onOverlayToggle(index, id)}
           onOpacityChange={(id, opacity) => onOpacityChange(index, id, opacity)}
           onElevationRangeChange={(range) => onElevationRangeChange(index, range)}
-          onEstimateElevationRange={() => onEstimateElevationRange(index)}
-          elevationRangeLoading={elevationRangeLoadingPane === index}
+          onAutoElevationRangeChange={(enabled) => onAutoElevationRangeChange(index, enabled)}
+          onEstimateElevationRange={(viewportSize) => onEstimateElevationRange(index, viewportSize)}
+          elevationRangeLoading={elevationRangeLoadingPanes.includes(index)}
           onTileError={onTileError}
-          onMoveEnd={onMoveEnd}
+          onMoveEnd={(viewportSize) => onMoveEnd(index, viewportSize)}
           locationSource={locationSource}
           pinSource={pinSource}
           gisSource={gisSource}

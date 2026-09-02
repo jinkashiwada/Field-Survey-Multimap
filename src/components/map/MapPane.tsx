@@ -17,6 +17,7 @@ import { PaneLayerControls } from '../layers/PaneLayerControls';
 import { locationStyle } from '../../services/locationStyle';
 import { featureDisplayName, gisStyle, pinStyle } from '../../services/vectorStyles';
 import { copyText } from '../../services/clipboard';
+import { ElevationQuickControls } from '../layers/ElevationQuickControls';
 
 interface ContextLocation {
   left: number;
@@ -34,10 +35,11 @@ interface MapPaneProps {
   onOverlayToggle: (id: string) => void;
   onOpacityChange: (id: string, opacity: number) => void;
   onElevationRangeChange: (range: ElevationColorRange) => void;
-  onEstimateElevationRange: () => void;
+  onAutoElevationRangeChange: (enabled: boolean) => void;
+  onEstimateElevationRange: (viewportSize: readonly [number, number]) => void;
   elevationRangeLoading: boolean;
   onTileError: (message: string) => void;
-  onMoveEnd: () => void;
+  onMoveEnd: (viewportSize: readonly [number, number]) => void;
   locationSource: VectorSource<Feature<Geometry>>;
   pinSource: VectorSource<Feature<Geometry>>;
   gisSource: VectorSource<Feature<Geometry>>;
@@ -45,11 +47,16 @@ interface MapPaneProps {
   onRequestPinAt: (longitude: number, latitude: number) => void;
 }
 
-export function MapPane({ index, view, config, onBaseChange, onOverlayToggle, onOpacityChange, onElevationRangeChange, onEstimateElevationRange, elevationRangeLoading, onTileError, onMoveEnd, locationSource, pinSource, gisSource, onFeatureSelect, onRequestPinAt }: MapPaneProps) {
+export function MapPane({ index, view, config, onBaseChange, onOverlayToggle, onOpacityChange, onElevationRangeChange, onAutoElevationRangeChange, onEstimateElevationRange, elevationRangeLoading, onTileError, onMoveEnd, locationSource, pinSource, gisSource, onFeatureSelect, onRequestPinAt }: MapPaneProps) {
   const targetRef = useRef<HTMLDivElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
   const rasterGroupRef = useRef(new LayerGroup());
+  const onMoveEndRef = useRef(onMoveEnd);
   const [contextLocation, setContextLocation] = useState<ContextLocation | null>(null);
+
+  useEffect(() => {
+    onMoveEndRef.current = onMoveEnd;
+  }, [onMoveEnd]);
 
   useEffect(() => {
     const target = targetRef.current;
@@ -67,7 +74,11 @@ export function MapPane({ index, view, config, onBaseChange, onOverlayToggle, on
       controls: defaultControls({ rotate: false, attributionOptions: { collapsible: true } }),
     });
     const observer = new ResizeObserver(() => map.updateSize());
-    map.on('moveend', onMoveEnd);
+    const reportMoveEnd = () => {
+      const size = map.getSize();
+      onMoveEndRef.current([size?.[0] ?? target.clientWidth, size?.[1] ?? target.clientHeight]);
+    };
+    map.on('moveend', reportMoveEnd);
     const selectFeature = (event: unknown) => {
       const mapEvent = event as MapBrowserEvent<PointerEvent>;
       const feature = map.forEachFeatureAtPixel(mapEvent.pixel, (candidate) => candidate);
@@ -149,11 +160,11 @@ export function MapPane({ index, view, config, onBaseChange, onOverlayToggle, on
       target.removeEventListener('pointermove', checkLongPressMove);
       target.removeEventListener('pointerup', cancelLongPress);
       target.removeEventListener('pointercancel', cancelLongPress);
-      map.un('moveend', onMoveEnd);
+      map.un('moveend', reportMoveEnd);
       map.un('singleclick', selectFeature);
       map.setTarget(undefined);
     };
-  }, [gisSource, locationSource, onFeatureSelect, onMoveEnd, onRequestPinAt, pinSource, view]);
+  }, [gisSource, locationSource, onFeatureSelect, onRequestPinAt, pinSource, view]);
 
   useEffect(() => {
     const definitions = [config.baseLayerId, ...config.overlayLayerIds]
@@ -186,11 +197,23 @@ export function MapPane({ index, view, config, onBaseChange, onOverlayToggle, on
           onOverlayToggle={onOverlayToggle}
           onOpacityChange={onOpacityChange}
           onElevationRangeChange={onElevationRangeChange}
-          onEstimateElevationRange={onEstimateElevationRange}
-          elevationRangeLoading={elevationRangeLoading}
         />
       </header>
       <div ref={targetRef} className="map-target" />
+      {config.baseLayerId === 'gsi-relief-custom' && (
+        <ElevationQuickControls
+          paneNumber={index + 1}
+          minimum={config.elevationColorRange.minimum}
+          maximum={config.elevationColorRange.maximum}
+          automatic={config.autoElevationRange}
+          loading={elevationRangeLoading}
+          onEstimate={() => onEstimateElevationRange([
+            targetRef.current?.clientWidth ?? window.innerWidth,
+            targetRef.current?.clientHeight ?? window.innerHeight,
+          ])}
+          onAutomaticChange={onAutoElevationRangeChange}
+        />
+      )}
       <div ref={tooltipRef} className="map-feature-tooltip" role="tooltip" hidden />
       {contextLocation && (
         <div

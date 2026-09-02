@@ -20,12 +20,16 @@ function roundedRange(low: number, high: number): ElevationColorRange {
 }
 
 /**
- * DEM10Bの16地点だけを明示操作時に標本抽出する。地図移動中やバックグラウンドでは実行しない。
+ * DEM10Bの16地点だけを、手動操作時またはmoveend後の自動設定時に標本抽出する。
  */
-export async function estimateVisibleElevationRange(view: View, signal: AbortSignal): Promise<ElevationColorRange | null> {
+export async function estimateVisibleElevationRange(
+  view: View,
+  signal: AbortSignal,
+  viewportSize: readonly [number, number] = [window.innerWidth, window.innerHeight],
+): Promise<ElevationColorRange | null> {
   const extent = view.calculateExtent([
-    Math.min(window.innerWidth, 1_200),
-    Math.min(window.innerHeight, 800),
+    Math.min(viewportSize[0], 1_200),
+    Math.min(viewportSize[1], 800),
   ]);
   const dem10b = demPriority.find((dem) => dem.id === 'dem10b');
   if (!dem10b) return null;

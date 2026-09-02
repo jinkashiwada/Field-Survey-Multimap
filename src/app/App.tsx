@@ -3,7 +3,7 @@ import { MapGrid } from '../components/map/MapGrid';
 import { LayoutToolbar } from '../components/toolbar/LayoutToolbar';
 import { useViewport } from '../hooks/useViewport';
 import { AppProvider, useAppContext } from '../state/AppContext';
-import { normalizeLayout } from '../utils/layout';
+import { normalizeLayout, paneCountForLayout } from '../utils/layout';
 import { presetRegistry } from '../config/presets';
 import { supportsQuad } from '../utils/layout';
 import { useCallback } from 'react';
@@ -33,17 +33,21 @@ function AppContent() {
   const [shareFallbackOpen, setShareFallbackOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
-  const [elevationRangeLoadingPane, setElevationRangeLoadingPane] = useState<number | null>(null);
+  const [elevationRangeLoadingPanes, setElevationRangeLoadingPanes] = useState<number[]>([]);
   const [pinLocation, setPinLocation] = useState<{
     longitude: number;
     latitude: number;
     elevation: number | null;
     elevationSource: string | null;
   } | null>(null);
+  const effectiveLayout = normalizeLayout(state.layout, viewport);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const elevationRangeAbortRef = useRef<AbortController | null>(null);
+  const autoElevationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const paneSizesRef = useRef(new Map<number, readonly [number, number]>());
+  const latestStateRef = useRef(state);
+  const effectiveLayoutRef = useRef(effectiveLayout);
   const tileErrorTimesRef = useRef(new Map<string, number>());
-  const effectiveLayout = normalizeLayout(state.layout, viewport);
   const reportTileError = useCallback((message: string) => {
     const now = Date.now();
     const previous = tileErrorTimesRef.current.get(message) ?? 0;
@@ -60,33 +64,62 @@ function AppContent() {
     setPinLocation({ longitude, latitude, elevation: null, elevationSource: null });
     setPinPanelOpen(true);
   }, []);
-  const estimateElevationRange = useCallback((paneIndex: number) => {
+  const estimateElevationRanges = useCallback((
+    paneIndices: readonly number[],
+    viewportSize: readonly [number, number],
+    mode: 'manual' | 'automatic',
+  ) => {
+    const targets = [...new Set(paneIndices)];
+    if (targets.length === 0) return;
     elevationRangeAbortRef.current?.abort();
     const controller = new AbortController();
     elevationRangeAbortRef.current = controller;
-    setElevationRangeLoadingPane(paneIndex);
-    void estimateVisibleElevationRange(sharedView, controller.signal)
+    setElevationRangeLoadingPanes(targets);
+    void estimateVisibleElevationRange(sharedView, controller.signal, viewportSize)
       .then((range) => {
         if (controller.signal.aborted) return;
         if (range) {
-          dispatch({ type: 'set-elevation-range', paneIndex, range });
-          dispatch({ type: 'notify', message: `表示範囲の16地点から標高レンジを${range.minimum}～${range.maximum} mに推定しました。` });
-        } else {
+          targets.forEach((paneIndex) => dispatch({ type: 'set-elevation-range', paneIndex, range }));
+          if (mode === 'manual') {
+            dispatch({ type: 'notify', message: `表示範囲の16地点から標高レンジを${range.minimum}～${range.maximum} mに推定しました。` });
+          }
+        } else if (mode === 'manual') {
           dispatch({ type: 'notify', message: '表示範囲から十分な標高値を取得できませんでした。手動レンジを使用してください。' });
         }
       })
       .catch((error: unknown) => {
-        if (!(error instanceof DOMException && error.name === 'AbortError')) {
+        if (mode === 'manual' && !(error instanceof DOMException && error.name === 'AbortError')) {
           dispatch({ type: 'notify', message: '標高レンジの推定に失敗しました。地図操作は継続できます。' });
         }
       })
       .finally(() => {
         if (elevationRangeAbortRef.current === controller) {
           elevationRangeAbortRef.current = null;
-          setElevationRangeLoadingPane(null);
+          setElevationRangeLoadingPanes([]);
         }
       });
   }, [dispatch, sharedView]);
+  const estimateElevationRangeManually = useCallback((paneIndex: number, viewportSize: readonly [number, number]) => {
+    if (autoElevationTimerRef.current) clearTimeout(autoElevationTimerRef.current);
+    estimateElevationRanges([paneIndex], viewportSize, 'manual');
+  }, [estimateElevationRanges]);
+  const handleMapMoveEnd = useCallback((paneIndex: number, viewportSize: readonly [number, number]) => {
+    paneSizesRef.current.set(paneIndex, viewportSize);
+    updateAfterMove();
+    if (autoElevationTimerRef.current) clearTimeout(autoElevationTimerRef.current);
+    autoElevationTimerRef.current = setTimeout(() => {
+      const currentState = latestStateRef.current;
+      const visiblePaneCount = paneCountForLayout(effectiveLayoutRef.current);
+      const targets = currentState.panes
+        .slice(0, visiblePaneCount)
+        .map((pane, index) => ({ pane, index }))
+        .filter(({ pane }) => pane.baseLayerId === 'gsi-relief-custom' && pane.autoElevationRange)
+        .map(({ index }) => index);
+      if (targets.length === 0) return;
+      const samplingSize = paneSizesRef.current.get(targets[0]!) ?? viewportSize;
+      estimateElevationRanges(targets, samplingSize, 'automatic');
+    }, 300);
+  }, [estimateElevationRanges, updateAfterMove]);
 
   const importFiles = useCallback(async (files: FileList | File[]) => {
     let imported = 0;
@@ -126,6 +159,11 @@ function AppContent() {
   }, [dispatch, locationStatus.message]);
 
   useEffect(() => {
+    latestStateRef.current = state;
+    effectiveLayoutRef.current = effectiveLayout;
+  }, [effectiveLayout, state]);
+
+  useEffect(() => {
     if (state.layout === 'quad' && effectiveLayout !== 'quad') {
       dispatch({ type: 'set-layout', layout: effectiveLayout });
       dispatch({ type: 'notify', message: 'この画面サイズでは4画面を表示できないため、2画面へ切り替えました。' });
@@ -134,7 +172,10 @@ function AppContent() {
     }
   }, [dispatch, effectiveLayout, state.layout]);
 
-  useEffect(() => () => elevationRangeAbortRef.current?.abort(), []);
+  useEffect(() => () => {
+    elevationRangeAbortRef.current?.abort();
+    if (autoElevationTimerRef.current) clearTimeout(autoElevationTimerRef.current);
+  }, []);
 
   return (
     <main className="app-shell">
@@ -201,10 +242,11 @@ function AppContent() {
         onOverlayToggle={(paneIndex, layerId) => dispatch({ type: 'toggle-overlay', paneIndex, layerId })}
         onOpacityChange={(paneIndex, layerId, opacity) => dispatch({ type: 'set-opacity', paneIndex, layerId, opacity })}
         onElevationRangeChange={(paneIndex, range) => dispatch({ type: 'set-elevation-range', paneIndex, range })}
-        onEstimateElevationRange={estimateElevationRange}
-        elevationRangeLoadingPane={elevationRangeLoadingPane}
+        onAutoElevationRangeChange={(paneIndex, enabled) => dispatch({ type: 'set-auto-elevation-range', paneIndex, enabled })}
+        onEstimateElevationRange={estimateElevationRangeManually}
+        elevationRangeLoadingPanes={elevationRangeLoadingPanes}
         onTileError={reportTileError}
-        onMoveEnd={updateAfterMove}
+        onMoveEnd={handleMapMoveEnd}
         locationSource={locationSource}
         pinSource={pinSource}
         gisSource={gisSource}

@@ -27,5 +27,17 @@ describe('application reducer', () => {
       type: 'set-elevation-range', paneIndex: 0, range: { minimum: 9, maximum: 9 },
     });
     expect(rejected.panes[0]?.elevationColorRange).toEqual({ minimum: -1, maximum: 9 });
+    const unchanged = appReducer(updated, {
+      type: 'set-elevation-range', paneIndex: 0, range: { minimum: -1, maximum: 9 },
+    });
+    expect(unchanged).toBe(updated);
+  });
+
+  it('toggles automatic elevation range for one pane', () => {
+    const state = appReducer(initialAppState, {
+      type: 'set-auto-elevation-range', paneIndex: 2, enabled: true,
+    });
+    expect(state.panes[2]?.autoElevationRange).toBe(true);
+    expect(state.panes[0]?.autoElevationRange).toBe(false);
   });
 });

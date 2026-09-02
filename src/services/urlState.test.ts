@@ -33,10 +33,19 @@ describe('URL state codec', () => {
     const state = defaultUrlState();
     state.panes[0]!.baseLayerId = 'gsi-relief-custom';
     state.panes[0]!.elevationColorRange = { minimum: -2, maximum: 12.5 };
+    state.panes[0]!.autoElevationRange = true;
     const hash = serializeUrlState(state);
     expect(hash).toContain('e0=-2.0%3A12.5');
+    expect(hash).toContain('ae0=1');
     expect(parseUrlState(hash).panes[0]?.elevationColorRange).toEqual({ minimum: -2, maximum: 12.5 });
+    expect(parseUrlState(hash).panes[0]?.autoElevationRange).toBe(true);
     expect(parseUrlState('#v=1&b0=gsi-relief-custom&e0=20:10').panes[0]?.elevationColorRange)
       .toEqual({ minimum: 0, maximum: 20 });
+  });
+
+  it('does not serialize automatic elevation for other background maps', () => {
+    const state = defaultUrlState();
+    state.panes[0]!.autoElevationRange = true;
+    expect(serializeUrlState(state)).not.toContain('ae0=1');
   });
 });

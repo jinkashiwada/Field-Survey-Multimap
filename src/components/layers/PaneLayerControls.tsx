@@ -9,11 +9,9 @@ interface PaneLayerControlsProps {
   onOverlayToggle: (id: string) => void;
   onOpacityChange: (id: string, opacity: number) => void;
   onElevationRangeChange: (range: ElevationColorRange) => void;
-  onEstimateElevationRange: () => void;
-  elevationRangeLoading: boolean;
 }
 
-export function PaneLayerControls({ index, config, onBaseChange, onOverlayToggle, onOpacityChange, onElevationRangeChange, onEstimateElevationRange, elevationRangeLoading }: PaneLayerControlsProps) {
+export function PaneLayerControls({ index, config, onBaseChange, onOverlayToggle, onOpacityChange, onElevationRangeChange }: PaneLayerControlsProps) {
   const [minimumDraft, setMinimumDraft] = useState<string | null>(null);
   const [maximumDraft, setMaximumDraft] = useState<string | null>(null);
   const minimum = minimumDraft ?? String(config.elevationColorRange.minimum);
@@ -48,12 +46,8 @@ export function PaneLayerControls({ index, config, onBaseChange, onOverlayToggle
                   setMaximumDraft(null);
                 }
               }}>適用</button>
-              <button type="button" onClick={() => { setMinimumDraft(null); setMaximumDraft(null); onElevationRangeChange({ minimum: 0, maximum: 10 }); }}>低平地 0～10m</button>
-              <button type="button" onClick={() => { setMinimumDraft(null); setMaximumDraft(null); onEstimateElevationRange(); }} disabled={elevationRangeLoading}>
-                {elevationRangeLoading ? '推定中…' : '表示範囲から推定'}
-              </button>
             </div>
-            <p>再配色は新しい256pxタイルの受信時とレンジ変更時だけ行います。範囲推定は押した時だけ16地点を標本抽出し、地図移動中の毎フレーム計算はしません。</p>
+            <p>再配色は新しい256pxタイルの受信時とレンジ変更時だけ行います。地図上のクイック操作では、手動またはmoveend後の自動設定で16地点だけを標本抽出します。</p>
             <div className="elevation-ramp" aria-label={`${config.elevationColorRange.minimum}メートルから${config.elevationColorRange.maximum}メートルの凡例`} />
             <small>{config.elevationColorRange.minimum} m / {config.elevationColorRange.maximum} m</small>
           </section>

@@ -17,6 +17,7 @@ function pane(baseLayerId: string, overlayLayerIds: string[] = []): PaneLayerSta
     overlayLayerIds,
     opacityByLayerId: Object.fromEntries(ids.map((id) => [id, layerById.get(id)?.defaultOpacity ?? 1])),
     elevationColorRange: { minimum: 0, maximum: 20 },
+    autoElevationRange: false,
   };
 }
 
