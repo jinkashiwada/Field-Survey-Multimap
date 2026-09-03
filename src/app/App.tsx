@@ -179,12 +179,7 @@ function AppContent() {
 
   return (
     <main className="app-shell">
-      <header className="app-titlebar">
-        <div>
-          <p className="eyebrow">Version 0.1</p>
-          <h1>水害調査マルチマップ</h1>
-        </div>
-      </header>
+      <h1 className="visually-hidden">水害調査マルチマップ</h1>
       <LayoutToolbar
         activeLayout={effectiveLayout}
         viewport={viewport}

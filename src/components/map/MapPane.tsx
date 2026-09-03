@@ -126,27 +126,62 @@ export function MapPane({ index, view, config, onBaseChange, onOverlayToggle, on
       });
     };
     let longPressTimer = 0;
+    let longPressPointerId: number | null = null;
     let touchStart: [number, number] | null = null;
+    let suppressContextMenuUntil = 0;
+    let multiTouchGesture = false;
+    const activeTouchPointers = new Set<number>();
     const cancelLongPress = () => {
       window.clearTimeout(longPressTimer);
       longPressTimer = 0;
+      longPressPointerId = null;
       touchStart = null;
     };
     const startLongPress = (event: PointerEvent) => {
       if (event.pointerType !== 'touch') return;
+      activeTouchPointers.add(event.pointerId);
+      cancelLongPress();
+      if (activeTouchPointers.size !== 1) {
+        multiTouchGesture = true;
+        suppressContextMenuUntil = Date.now() + 1_500;
+        return;
+      }
+      longPressPointerId = event.pointerId;
       touchStart = [event.clientX, event.clientY];
-      longPressTimer = window.setTimeout(() => openContextMenu(event), 650);
+      longPressTimer = window.setTimeout(() => {
+        if (activeTouchPointers.size === 1 && longPressPointerId === event.pointerId) openContextMenu(event);
+      }, 650);
     };
     const checkLongPressMove = (event: PointerEvent) => {
-      if (!touchStart) return;
+      if (event.pointerType !== 'touch' || !touchStart || event.pointerId !== longPressPointerId) return;
+      if (activeTouchPointers.size !== 1) {
+        cancelLongPress();
+        return;
+      }
       if (Math.hypot(event.clientX - touchStart[0], event.clientY - touchStart[1]) > 10) cancelLongPress();
     };
+    const finishTouch = (event: PointerEvent) => {
+      if (event.pointerType !== 'touch') return;
+      activeTouchPointers.delete(event.pointerId);
+      if (event.pointerId === longPressPointerId || activeTouchPointers.size !== 1) cancelLongPress();
+      if (multiTouchGesture && activeTouchPointers.size === 0) {
+        suppressContextMenuUntil = Date.now() + 1_000;
+        multiTouchGesture = false;
+      }
+    };
+    const openSeparatedContextMenu = (event: MouseEvent | PointerEvent) => {
+      if (Date.now() < suppressContextMenuUntil) {
+        event.preventDefault();
+        return;
+      }
+      openContextMenu(event);
+    };
     target.addEventListener('pointermove', showHoverName);
-    target.addEventListener('contextmenu', openContextMenu);
+    target.addEventListener('contextmenu', openSeparatedContextMenu);
     target.addEventListener('pointerdown', startLongPress);
     target.addEventListener('pointermove', checkLongPressMove);
-    target.addEventListener('pointerup', cancelLongPress);
-    target.addEventListener('pointercancel', cancelLongPress);
+    target.addEventListener('pointerup', finishTouch);
+    target.addEventListener('pointercancel', finishTouch);
     observer.observe(target);
     requestAnimationFrame(() => map.updateSize());
 
@@ -154,12 +189,13 @@ export function MapPane({ index, view, config, onBaseChange, onOverlayToggle, on
       observer.disconnect();
       cancelAnimationFrame(hoverFrame);
       cancelLongPress();
+      activeTouchPointers.clear();
       target.removeEventListener('pointermove', showHoverName);
-      target.removeEventListener('contextmenu', openContextMenu);
+      target.removeEventListener('contextmenu', openSeparatedContextMenu);
       target.removeEventListener('pointerdown', startLongPress);
       target.removeEventListener('pointermove', checkLongPressMove);
-      target.removeEventListener('pointerup', cancelLongPress);
-      target.removeEventListener('pointercancel', cancelLongPress);
+      target.removeEventListener('pointerup', finishTouch);
+      target.removeEventListener('pointercancel', finishTouch);
       map.un('moveend', reportMoveEnd);
       map.un('singleclick', selectFeature);
       map.setTarget(undefined);
@@ -188,18 +224,15 @@ export function MapPane({ index, view, config, onBaseChange, onOverlayToggle, on
 
   return (
     <section className="map-pane" data-testid="map-pane" aria-label={`地図画面${index + 1}`}>
-      <header className="pane-header">
-        <strong>画面 {index + 1}</strong>
-        <PaneLayerControls
-          index={index}
-          config={config}
-          onBaseChange={onBaseChange}
-          onOverlayToggle={onOverlayToggle}
-          onOpacityChange={onOpacityChange}
-          onElevationRangeChange={onElevationRangeChange}
-        />
-      </header>
       <div ref={targetRef} className="map-target" />
+      <PaneLayerControls
+        index={index}
+        config={config}
+        onBaseChange={onBaseChange}
+        onOverlayToggle={onOverlayToggle}
+        onOpacityChange={onOpacityChange}
+        onElevationRangeChange={onElevationRangeChange}
+      />
       {config.baseLayerId === 'gsi-relief-custom' && (
         <ElevationQuickControls
           paneNumber={index + 1}

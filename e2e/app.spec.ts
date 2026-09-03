@@ -22,6 +22,40 @@ test('携帯電話幅ではquad指定を2画面へ縮退する', async ({ page }
   await expect(page.getByRole('button', { name: '4画面' })).toBeDisabled();
 });
 
+test('携帯電話でツールバーが一行表示されレイヤー設定を常に閉じられる', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/');
+  await expect(page.locator('.app-titlebar')).toHaveCount(0);
+  await expect(page.locator('.pane-header')).toHaveCount(0);
+  const toolbar = page.getByRole('navigation', { name: '地図表示ツール' });
+  await expect(toolbar).toBeVisible();
+  expect((await toolbar.boundingBox())?.height).toBeLessThanOrEqual(60);
+  for (const button of await toolbar.getByRole('button').all()) {
+    expect(await button.evaluate((element) => getComputedStyle(element).whiteSpace)).toBe('nowrap');
+  }
+
+  await page.getByLabel('画面1のレイヤー設定').click();
+  const panel = page.getByRole('dialog', { name: '画面1のレイヤー設定' });
+  await expect(panel).toBeVisible();
+  await panel.locator('.layer-controls-panel-body').evaluate((element) => { element.scrollTop = element.scrollHeight; });
+  const closeButton = panel.getByRole('button', { name: 'レイヤー設定を閉じる' });
+  await expect(closeButton).toBeVisible();
+  await closeButton.click();
+  await expect(panel).toHaveCount(0);
+});
+
+test('二本指操作では地点操作メニューを開かない', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/');
+  const map = page.locator('.map-target').first();
+  await map.dispatchEvent('pointerdown', { pointerType: 'touch', pointerId: 1, clientX: 150, clientY: 300 });
+  await map.dispatchEvent('pointerdown', { pointerType: 'touch', pointerId: 2, clientX: 230, clientY: 300 });
+  await page.waitForTimeout(750);
+  await expect(page.getByRole('menu', { name: '地点操作' })).toHaveCount(0);
+  await map.dispatchEvent('pointerup', { pointerType: 'touch', pointerId: 1, clientX: 150, clientY: 300 });
+  await map.dispatchEvent('pointerup', { pointerType: 'touch', pointerId: 2, clientX: 230, clientY: 300 });
+});
+
 test('プリセットを切り替えられる', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto('/');
@@ -77,11 +111,12 @@ test('解析用色別標高図の常設操作と自動推定を利用できる',
   await page.getByLabel('最高（m）').fill('22');
   await page.getByRole('button', { name: '適用' }).click();
   await expect.poll(() => new URL(page.url()).hash).toContain('e0=3.0%3A22.0');
+  await expect(page.getByText(/再配色は新しい256pxタイル/)).toBeVisible();
+  await page.getByRole('dialog', { name: '画面1のレイヤー設定' })
+    .getByRole('button', { name: 'レイヤー設定を閉じる' }).click();
   await expect(page.getByRole('button', { name: '表示範囲から配色レンジを推定' })).toBeVisible();
   await page.getByLabel('移動後に自動推定').check();
   await expect.poll(() => new URL(page.url()).hash).toContain('ae0=1');
-  await expect(page.getByText(/再配色は新しい256pxタイル/)).toBeVisible();
-  await page.getByLabel('画面1のレイヤー設定').click();
   await page.locator('.map-target').first().hover();
   await page.mouse.wheel(0, -500);
   await expect.poll(() => decodeURIComponent(new URL(page.url()).hash), { timeout: 10_000 }).not.toContain('e0=3.0:22.0');
