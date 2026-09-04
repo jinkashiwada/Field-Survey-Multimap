@@ -22,6 +22,7 @@ import { ShareFallbackDialog } from '../components/toolbar/ShareFallbackDialog';
 import { SettingsPanel } from '../components/toolbar/SettingsPanel';
 import { estimateVisibleElevationRange } from '../services/elevation/range';
 import { SearchPanel } from '../components/toolbar/SearchPanel';
+import { ObservationSitesPanel } from '../components/toolbar/ObservationSitesPanel';
 
 function AppContent() {
   const { state, dispatch, sharedView, locationSource, pinSource, gisSource } = useAppContext();
@@ -33,6 +34,7 @@ function AppContent() {
   const [shareFallbackOpen, setShareFallbackOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [observationSitesOpen, setObservationSitesOpen] = useState(false);
   const [elevationRangeLoadingPanes, setElevationRangeLoadingPanes] = useState<number[]>([]);
   const [pinLocation, setPinLocation] = useState<{
     longitude: number;
@@ -209,6 +211,7 @@ function AppContent() {
           });
         }}
         onSearch={() => setSearchOpen(true)}
+        onObservationSites={() => setObservationSitesOpen(true)}
         onSettings={() => setSettingsOpen(true)}
       />
       <input
@@ -284,6 +287,13 @@ function AppContent() {
           setSearchOpen(false);
           dispatch({ type: 'notify', message: `${result.label}へ移動しました。` });
         }}
+      />
+      <ObservationSitesPanel
+        open={observationSitesOpen}
+        longitude={centerStatus.longitude}
+        latitude={centerStatus.latitude}
+        zoom={centerStatus.zoom}
+        onClose={() => setObservationSitesOpen(false)}
       />
       <ShareFallbackDialog open={shareFallbackOpen} onClose={() => setShareFallbackOpen(false)} />
     </main>

@@ -29,8 +29,10 @@ interface ContextLocation {
 
 interface MapPaneProps {
   index: number;
+  layerControlsOpen: boolean;
   view: View;
   config: PaneLayerState;
+  onLayerControlsOpenChange: (open: boolean) => void;
   onBaseChange: (id: string) => void;
   onOverlayToggle: (id: string) => void;
   onOpacityChange: (id: string, opacity: number) => void;
@@ -47,7 +49,7 @@ interface MapPaneProps {
   onRequestPinAt: (longitude: number, latitude: number) => void;
 }
 
-export function MapPane({ index, view, config, onBaseChange, onOverlayToggle, onOpacityChange, onElevationRangeChange, onAutoElevationRangeChange, onEstimateElevationRange, elevationRangeLoading, onTileError, onMoveEnd, locationSource, pinSource, gisSource, onFeatureSelect, onRequestPinAt }: MapPaneProps) {
+export function MapPane({ index, layerControlsOpen, view, config, onLayerControlsOpenChange, onBaseChange, onOverlayToggle, onOpacityChange, onElevationRangeChange, onAutoElevationRangeChange, onEstimateElevationRange, elevationRangeLoading, onTileError, onMoveEnd, locationSource, pinSource, gisSource, onFeatureSelect, onRequestPinAt }: MapPaneProps) {
   const targetRef = useRef<HTMLDivElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
   const rasterGroupRef = useRef(new LayerGroup());
@@ -227,7 +229,9 @@ export function MapPane({ index, view, config, onBaseChange, onOverlayToggle, on
       <div ref={targetRef} className="map-target" />
       <PaneLayerControls
         index={index}
+        open={layerControlsOpen}
         config={config}
+        onOpenChange={onLayerControlsOpenChange}
         onBaseChange={onBaseChange}
         onOverlayToggle={onOverlayToggle}
         onOpacityChange={onOpacityChange}

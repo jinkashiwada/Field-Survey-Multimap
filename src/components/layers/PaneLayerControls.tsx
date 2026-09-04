@@ -4,15 +4,16 @@ import type { ElevationColorRange, PaneLayerState } from '../../domain/layers';
 
 interface PaneLayerControlsProps {
   index: number;
+  open: boolean;
   config: PaneLayerState;
+  onOpenChange: (open: boolean) => void;
   onBaseChange: (id: string) => void;
   onOverlayToggle: (id: string) => void;
   onOpacityChange: (id: string, opacity: number) => void;
   onElevationRangeChange: (range: ElevationColorRange) => void;
 }
 
-export function PaneLayerControls({ index, config, onBaseChange, onOverlayToggle, onOpacityChange, onElevationRangeChange }: PaneLayerControlsProps) {
-  const [open, setOpen] = useState(false);
+export function PaneLayerControls({ index, open, config, onOpenChange, onBaseChange, onOverlayToggle, onOpacityChange, onElevationRangeChange }: PaneLayerControlsProps) {
   const [minimumDraft, setMinimumDraft] = useState<string | null>(null);
   const [maximumDraft, setMaximumDraft] = useState<string | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -23,9 +24,9 @@ export function PaneLayerControls({ index, config, onBaseChange, onOverlayToggle
     .map((id) => layerById.get(id))
     .filter((definition) => definition !== undefined);
   const close = useCallback(() => {
-    setOpen(false);
+    onOpenChange(false);
     requestAnimationFrame(() => triggerRef.current?.focus());
-  }, []);
+  }, [onOpenChange]);
 
   useEffect(() => {
     if (!open) return;
@@ -45,7 +46,7 @@ export function PaneLayerControls({ index, config, onBaseChange, onOverlayToggle
         aria-label={`画面${index + 1}のレイヤー設定`}
         aria-expanded={open}
         aria-controls={panelId}
-        onClick={() => setOpen((current) => !current)}
+        onClick={() => onOpenChange(!open)}
       >
         レイヤー
       </button>

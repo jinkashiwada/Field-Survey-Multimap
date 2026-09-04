@@ -85,7 +85,7 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
 .compact-actions button:disabled { opacity: 0.5; cursor: wait; }
 .elevation-ramp { height: 14px; border: 1px solid #71858f; border-radius: 3px; background: linear-gradient(90deg, #313695, #74add1, #ffffbf, #f46d43, #a50026); }
 .ol-attribution { max-width: calc(100% - 0.5rem); font-size: 0.68rem; }
-.data-drawer { position: fixed; z-index: 30; top: 0; right: 0; width: min(420px, 100vw); height: 100dvh; overflow: auto; padding: 0 0.85rem calc(1rem + env(safe-area-inset-bottom)); background: #f8fbfc; border-left: 1px solid #9fb0b8; box-shadow: -8px 0 28px rgb(0 0 0 / 24%); }
+.data-drawer { position: fixed; z-index: 120; top: 0; right: 0; width: min(420px, 100vw); height: 100dvh; overflow: auto; padding: 0 0.85rem calc(1rem + env(safe-area-inset-bottom)); background: #f8fbfc; border-left: 1px solid #9fb0b8; box-shadow: -8px 0 28px rgb(0 0 0 / 24%); }
 .data-drawer > header { position: sticky; z-index: 2; top: 0; display: flex; align-items: center; justify-content: space-between; min-height: 58px; background: #f8fbfc; border-bottom: 1px solid #cad5da; }
 .data-drawer h2 { margin: 0; font-size: 1.1rem; }
 .data-drawer button, .pin-form input, .pin-form select, .pin-form textarea { min-height: 44px; border: 1px solid #93a7b2; border-radius: 0.4rem; background: #fff; color: #153243; }
@@ -106,6 +106,9 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
 .drop-zone { display: grid; place-items: center; gap: 0.55rem; min-height: 210px; margin-top: 1rem; padding: 1rem; border: 2px dashed #4c899f; border-radius: 0.65rem; text-align: center; background: #eaf4f7; }
 .drop-zone p { margin: 0; font-weight: 700; }
 .drawer-note { color: #48636f; font-size: 0.82rem; }
+.observation-sites-panel section { padding-bottom: 0.8rem; border-bottom: 1px solid #cad5da; }
+.observation-sites-panel a { color: #075c85; }
+.drawer-primary-link { min-height: 48px; display: flex; align-items: center; justify-content: center; padding: 0.55rem 0.75rem; border-radius: 0.45rem; color: #fff !important; background: #1d6687; font-weight: 700; text-align: center; text-decoration: none; }
 .source-list { display: grid; gap: 0.55rem; padding-left: 1.2rem; }
 .source-list a { color: #075c85; }
 .search-form { display: grid; gap: 0.4rem; padding: 0.8rem 0; }

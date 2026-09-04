@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type View from 'ol/View';
 import type { MapLayout } from '../../domain/layout';
 import type { ElevationColorRange, PaneLayerState } from '../../domain/layers';
@@ -29,14 +30,25 @@ interface MapGridProps {
 
 export function MapGrid({ layout, view, panes, onBaseChange, onOverlayToggle, onOpacityChange, onElevationRangeChange, onAutoElevationRangeChange, onEstimateElevationRange, elevationRangeLoadingPanes, onTileError, onMoveEnd, locationSource, pinSource, gisSource, onFeatureSelect, onRequestPinAt }: MapGridProps) {
   const paneCount = paneCountForLayout(layout);
+  const [activeLayerPaneIndex, setActiveLayerPaneIndex] = useState<number | null>(null);
+  const visibleLayerPaneIndex = activeLayerPaneIndex !== null && activeLayerPaneIndex < paneCount
+    ? activeLayerPaneIndex
+    : null;
+
+  const changeLayerControls = (paneIndex: number, open: boolean) => {
+    setActiveLayerPaneIndex((current) => open ? paneIndex : (current === paneIndex ? null : current));
+  };
+
   return (
     <div className={`map-grid map-grid--${layout}`} data-layout={layout}>
       {Array.from({ length: paneCount }, (_, index) => (
         <MapPane
           key={index}
           index={index}
+          layerControlsOpen={visibleLayerPaneIndex === index}
           view={view}
           config={panes[index]!}
+          onLayerControlsOpenChange={(open) => changeLayerControls(index, open)}
           onBaseChange={(id) => onBaseChange(index, id)}
           onOverlayToggle={(id) => onOverlayToggle(index, id)}
           onOpacityChange={(id, opacity) => onOpacityChange(index, id, opacity)}

@@ -44,6 +44,29 @@ test('携帯電話でツールバーが一行表示されレイヤー設定を�
   await expect(panel).toHaveCount(0);
 });
 
+test('画面を切り替えてもレイヤーパネルは常に1つだけ開く', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto('/');
+  await page.getByLabel('画面1のレイヤー設定').click();
+  await expect(page.getByRole('dialog', { name: '画面1のレイヤー設定' })).toBeVisible();
+  await page.getByLabel('画面2のレイヤー設定').click();
+  await expect(page.getByRole('dialog', { name: '画面1のレイヤー設定' })).toHaveCount(0);
+  await expect(page.getByRole('dialog', { name: '画面2のレイヤー設定' })).toBeVisible();
+  await expect(page.locator('.layer-controls-panel')).toHaveCount(1);
+});
+
+test('現在の地図中心から公式の観測施設マップを案内する', async ({ page }) => {
+  await page.goto('/#v=1&lon=140.123456&lat=36.654321&z=13.6&rot=0&layout=split-vertical');
+  await page.getByRole('button', { name: '観測施設' }).click();
+  const panel = page.getByRole('complementary', { name: '河川観測施設' });
+  await expect(panel).toBeVisible();
+  const officialLink = panel.getByRole('link', { name: '川の防災情報で観測施設を開く' });
+  await expect(officialLink).toHaveAttribute('href', /river\.go\.jp\/kawabou\/pc\/tmlist/);
+  await expect(officialLink).toHaveAttribute('href', /clat=36\.654321/);
+  await expect(officialLink).toHaveAttribute('href', /clon=140\.123456/);
+  await expect(officialLink).toHaveAttribute('href', /zm=14/);
+});
+
 test('二本指操作では地点操作メニューを開かない', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/');
