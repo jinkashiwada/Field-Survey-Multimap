@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { buildPinShareUrl } from '../src/services/pinShare';
+import { buildCompactPinShareUrl } from '../src/services/pinShare';
 import { defaultUrlState } from '../src/services/urlState';
 
 test.beforeEach(async ({ page }) => {
@@ -17,8 +17,11 @@ test('選択ピンの共有URLを別端末で開き、一時表示から明示�
   await page.getByRole('button', { name: 'このピンを共有' }).click();
   const dialog = page.getByRole('dialog', { name: 'このピンを共有' });
   const urlField = dialog.getByLabel('ピン付き共有URL');
-  expect(new URLSearchParams(new URL(await urlField.inputValue()).hash.slice(1)).get('pin')).not.toContain('水路横');
+  await expect(urlField).toHaveValue(/#s=1\./);
+  const withoutMemoUrl = await urlField.inputValue();
+  expect(withoutMemoUrl).not.toContain(encodeURIComponent('水路横'));
   await dialog.getByLabel('メモを含める').check();
+  await expect.poll(() => urlField.inputValue()).not.toBe(withoutMemoUrl);
   const url = await urlField.inputValue();
   await page.setViewportSize({ width: 390, height: 844 });
   expect((await dialog.boundingBox())?.width).toBeLessThanOrEqual(390);
@@ -61,7 +64,7 @@ test('選択ピンの共有URLを別端末で開き、一時表示から明示�
 
 test('通常の表示URLは受信ピンを含めず、コピー失敗時も同じURLを表示する', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  const url = buildPinShareUrl('http://127.0.0.1:4173/', { ...defaultUrlState(), layout: 'quad' }, {
+  const url = await buildCompactPinShareUrl('http://127.0.0.1:4173/', { ...defaultUrlState(), layout: 'quad' }, {
     name: 'URL限定ピン', memo: '', type: 'memo', longitude: 139.9, latitude: 35.9, elevation: null, elevationSource: null,
   }, false);
   await page.addInitScript(() => {

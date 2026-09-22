@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { appendSharedPin, buildMapShareUrl, buildPinShareUrl, parseSharedPin, type SharedPin } from './pinShare';
+import { appendSharedPin, buildCompactPinShareUrl, buildMapShareUrl, buildPinShareUrl, parseSharedPin, type SharedPin } from './pinShare';
+import { expandCompactHash } from './compactUrl';
 import { defaultUrlState, parseUrlState, serializeUrlState } from './urlState';
 
 const pin: SharedPin = {
@@ -22,6 +23,16 @@ describe('single pin sharing', () => {
     expect(url.pathname).toBe('/my-repo/');
     expect(parseSharedPin(url.hash)).toEqual({ pin, error: null });
     expect(parseUrlState(url.hash)).toEqual({ ...map, longitude: pin.longitude, latitude: pin.latitude });
+  });
+
+  it('builds a compact pin URL that expands to the same map and pin', async () => {
+    const map = defaultUrlState();
+    const url = new URL(await buildCompactPinShareUrl('https://example.com/my-repo/', map, pin, true));
+    expect(url.hash).toMatch(/^#s=1\./);
+    const expanded = await expandCompactHash(url.hash);
+    expect(expanded.error).toBe(false);
+    expect(parseSharedPin(expanded.hash)).toEqual({ pin, error: null });
+    expect(parseUrlState(expanded.hash).longitude).toBe(pin.longitude);
   });
 
   it('shares only explicitly chosen fields and strips the payload from ordinary map links', () => {

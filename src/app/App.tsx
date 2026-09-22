@@ -23,7 +23,7 @@ import { SettingsPanel } from '../components/toolbar/SettingsPanel';
 import { estimateVisibleElevationRange } from '../services/elevation/range';
 import { SearchPanel } from '../components/toolbar/SearchPanel';
 import { ObservationSitesPanel } from '../components/toolbar/ObservationSitesPanel';
-import { buildMapShareUrl, parseSharedPin } from '../services/pinShare';
+import { buildCompactMapShareUrl, buildMapShareUrl, parseSharedPin } from '../services/pinShare';
 import { PinShareDialog } from '../components/pins/PinShareDialog';
 import { SharedPinBanner } from '../components/pins/SharedPinBanner';
 import type { PinRecord } from '../domain/pins';
@@ -222,11 +222,12 @@ function AppContent() {
         onExportKml={() => exportAll('kml')}
         onExportGeoJson={() => exportAll('geojson')}
         onShare={() => {
-          const url = buildMapShareUrl(window.location.href, currentMapState());
-          void copyText(url).then((copied) => {
-            if (copied) dispatch({ type: 'notify', message: '表示URLをコピーしました。' });
-            else { setShareFallbackUrl(url); setShareFallbackOpen(true); }
-          });
+          void buildCompactMapShareUrl(window.location.href, currentMapState()).then((url) => {
+            void copyText(url).then((copied) => {
+              if (copied) dispatch({ type: 'notify', message: `表示URLをコピーしました（${url.length}文字）。` });
+              else { setShareFallbackUrl(url); setShareFallbackOpen(true); }
+            });
+          }).catch(() => dispatch({ type: 'notify', message: '表示URLを作成できませんでした。' }));
         }}
         onSearch={() => setSearchOpen(true)}
         onObservationSites={() => setObservationSitesOpen(true)}

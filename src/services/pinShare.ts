@@ -1,6 +1,7 @@
 import { pinTypeLabels, type PinRecord } from '../domain/pins';
 import type { UrlMapState } from '../domain/urlState';
 import { serializeUrlState } from './urlState';
+import { compactShareUrl } from './compactUrl';
 
 export type SharedPin = Pick<PinRecord, 'name' | 'type' | 'memo' | 'longitude' | 'latitude' | 'elevation' | 'elevationSource'>;
 const MAX_PAYLOAD_LENGTH = 24_000;
@@ -41,6 +42,7 @@ export function parseSharedPin(hash: string): { pin: SharedPin | null; error: st
   // Bound input before parsing JSON from an untrusted URL.
   if (hash.length > MAX_PAYLOAD_LENGTH) return invalid;
   const params = new URLSearchParams(hash.replace(/^#/, ''));
+  if (params.get('shareError') === '1') return invalid;
   const raw = params.get('pin');
   if (raw === null) return { pin: null, error: null };
   if (params.get('v') !== '1' || params.getAll('pin').length !== 1) return invalid;
@@ -66,4 +68,12 @@ export function buildMapShareUrl(pageUrl: string, map: UrlMapState): string {
   const url = new URL(pageUrl);
   url.hash = serializeUrlState(map);
   return url.href;
+}
+
+export async function buildCompactPinShareUrl(pageUrl: string, map: UrlMapState, pin: SharedPin, includeMemo: boolean): Promise<string> {
+  return compactShareUrl(buildPinShareUrl(pageUrl, map, pin, includeMemo));
+}
+
+export async function buildCompactMapShareUrl(pageUrl: string, map: UrlMapState): Promise<string> {
+  return compactShareUrl(buildMapShareUrl(pageUrl, map));
 }
