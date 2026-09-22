@@ -7,7 +7,7 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
       <header><h2>設定・出典</h2><button type="button" aria-label="設定を閉じる" onClick={onClose}>×</button></header>
       <section>
         <h3>プライバシー</h3>
-        <p>現在地、ピン、読み込んだKML・GeoJSONを外部へ送信したり、表示URLへ含めたりしません。ピンだけをこのブラウザーのlocalStorageへ保存します。</p>
+        <p>通常の表示URLにはピン、現在地マーカー、読み込んだKML・GeoJSONを含めません。「このピンを共有」を選んだ場合だけ、選択ピンの情報をURLへ含めます。共有メモは任意です。URLを知る人は内容を読めます。保存したピンはこのブラウザーのlocalStorageへ保存します。</p>
       </section>
       <section>
         <h3>内蔵レイヤーの出典</h3>
@@ -24,4 +24,3 @@ export function SettingsPanel({ open, onClose }: { open: boolean; onClose: () =>
     </aside>
   );
 }
-

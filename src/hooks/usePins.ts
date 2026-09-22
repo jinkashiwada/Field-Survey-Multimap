@@ -6,6 +6,7 @@ import { fromLonLat } from 'ol/proj';
 import type VectorSource from 'ol/source/Vector';
 import type { PinRecord } from '../domain/pins';
 import { loadPins, savePins } from '../services/pinStorage';
+import type { SharedPin } from '../services/pinShare';
 
 type NewPin = Omit<PinRecord, 'id' | 'createdAt' | 'updatedAt'>;
 
@@ -24,14 +25,18 @@ function pinFeature(pin: PinRecord): Feature<Geometry> {
   return feature;
 }
 
-export function usePins(source: VectorSource<Feature<Geometry>>) {
+export function usePins(source: VectorSource<Feature<Geometry>>, sharedPin: SharedPin | null = null) {
   const [pins, setPins] = useState<PinRecord[]>(loadPins);
 
   useEffect(() => {
     source.clear();
     source.addFeatures(pins.map(pinFeature));
+    if (sharedPin) source.addFeature(pinFeature({ ...sharedPin, id: 'shared-preview', createdAt: '', updatedAt: '' }));
+  }, [pins, sharedPin, source]);
+
+  useEffect(() => {
     savePins(pins);
-  }, [pins, source]);
+  }, [pins]);
 
   const addPin = useCallback((input: NewPin) => {
     const now = new Date().toISOString();
@@ -49,4 +54,3 @@ export function usePins(source: VectorSource<Feature<Geometry>>) {
 
   return { pins, addPin, updatePin, deletePin, clearPins };
 }
-

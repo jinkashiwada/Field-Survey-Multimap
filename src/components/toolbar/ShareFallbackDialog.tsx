@@ -1,6 +1,6 @@
 import { useRef } from 'react';
 
-export function ShareFallbackDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function ShareFallbackDialog({ open, url, onClose }: { open: boolean; url: string; onClose: () => void }) {
   const inputRef = useRef<HTMLInputElement>(null);
   if (!open) return null;
   return (
@@ -11,7 +11,7 @@ export function ShareFallbackDialog({ open, onClose }: { open: boolean; onClose:
         <input
           ref={(element) => { inputRef.current = element; window.setTimeout(() => element?.select(), 0); }}
           readOnly
-          value={window.location.href}
+          value={url}
           aria-label="共有する表示URL"
           onFocus={(event) => event.currentTarget.select()}
         />
@@ -20,4 +20,3 @@ export function ShareFallbackDialog({ open, onClose }: { open: boolean; onClose:
     </div>
   );
 }
-

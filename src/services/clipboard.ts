@@ -14,11 +14,11 @@ export async function copyText(value: string): Promise<boolean> {
   input.style.opacity = '0';
   document.body.append(input);
   input.select();
-  const copied = typeof document.execCommand === 'function' && document.execCommand('copy');
-  input.remove();
-  return copied;
-}
-
-export async function copyCurrentUrl(): Promise<boolean> {
-  return copyText(window.location.href);
+  try {
+    return typeof document.execCommand === 'function' && document.execCommand('copy');
+  } catch {
+    return false;
+  } finally {
+    input.remove();
+  }
 }

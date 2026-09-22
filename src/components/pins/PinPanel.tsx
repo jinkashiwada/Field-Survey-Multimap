@@ -15,6 +15,7 @@ interface PinPanelProps {
   onDelete: (id: string) => void;
   onClear: () => void;
   onGoTo: (pin: PinRecord) => void;
+  onShare: (pin: PinRecord) => void;
 }
 
 export function PinPanel(props: PinPanelProps) {
@@ -72,6 +73,7 @@ export function PinPanel(props: PinPanelProps) {
             {pin.memo && <p>{pin.memo}</p>}
             <div>
               <button type="button" onClick={() => props.onGoTo(pin)}>地点へ移動</button>
+              <button type="button" onClick={() => props.onShare(pin)}>このピンを共有</button>
               <button type="button" onClick={() => edit(pin)}>編集</button>
               <button type="button" onClick={() => {
                 if (window.confirm(`${pin.name}を削除しますか？`)) props.onDelete(pin.id);

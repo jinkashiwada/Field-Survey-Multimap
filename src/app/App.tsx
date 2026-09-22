@@ -15,14 +15,19 @@ import { PinPanel } from '../components/pins/PinPanel';
 import { GisPanel } from '../components/layers/GisPanel';
 import { parseGisFile, downloadExport } from '../services/import-export/files';
 import type { Extent } from 'ol/extent';
-import { fromLonLat } from 'ol/proj';
+import { fromLonLat, toLonLat } from 'ol/proj';
 import { useHashState } from '../hooks/useHashState';
-import { copyCurrentUrl } from '../services/clipboard';
+import { copyText } from '../services/clipboard';
 import { ShareFallbackDialog } from '../components/toolbar/ShareFallbackDialog';
 import { SettingsPanel } from '../components/toolbar/SettingsPanel';
 import { estimateVisibleElevationRange } from '../services/elevation/range';
 import { SearchPanel } from '../components/toolbar/SearchPanel';
 import { ObservationSitesPanel } from '../components/toolbar/ObservationSitesPanel';
+import { buildMapShareUrl, parseSharedPin } from '../services/pinShare';
+import { PinShareDialog } from '../components/pins/PinShareDialog';
+import { SharedPinBanner } from '../components/pins/SharedPinBanner';
+import type { PinRecord } from '../domain/pins';
+import type { UrlMapState } from '../domain/urlState';
 
 function AppContent() {
   const { state, dispatch, sharedView, locationSource, pinSource, gisSource } = useAppContext();
@@ -32,6 +37,9 @@ function AppContent() {
   const [gisCount, setGisCount] = useState(0);
   const [gisExtent, setGisExtent] = useState<Extent | null>(null);
   const [shareFallbackOpen, setShareFallbackOpen] = useState(false);
+  const [shareFallbackUrl, setShareFallbackUrl] = useState('');
+  const [receivedPin, setReceivedPin] = useState(() => parseSharedPin(window.location.hash));
+  const [pinShare, setPinShare] = useState<{ pin: PinRecord; map: UrlMapState } | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [observationSitesOpen, setObservationSitesOpen] = useState(false);
@@ -59,8 +67,17 @@ function AppContent() {
   }, [dispatch]);
   const { status: centerStatus, updateAfterMove } = useCenterStatus(sharedView);
   const { status: locationStatus, locate } = useGeolocation(sharedView, locationSource);
-  const { pins, addPin, updatePin, deletePin, clearPins } = usePins(pinSource);
-  useHashState(state, sharedView);
+  const { pins, addPin, updatePin, deletePin, clearPins } = usePins(pinSource, receivedPin.pin);
+  useHashState(state, sharedView, receivedPin.pin);
+  const currentMapState = (): UrlMapState => {
+    const [longitude = 139.908, latitude = 35.918] = toLonLat(sharedView.getCenter() ?? fromLonLat([139.908, 35.918]));
+    return { longitude, latitude, zoom: sharedView.getZoom() ?? 14, rotation: sharedView.getRotation(), layout: effectiveLayout, panes: state.panes };
+  };
+  const dismissSharedPin = () => {
+    setReceivedPin({ pin: null, error: null });
+    // Remove the payload immediately so saving/dismissing then reloading cannot import it again.
+    window.history.replaceState(window.history.state, '', buildMapShareUrl(window.location.href, currentMapState()));
+  };
   const selectFeature = useCallback((message: string) => dispatch({ type: 'notify', message }), [dispatch]);
   const requestPinAt = useCallback((longitude: number, latitude: number) => {
     setPinLocation({ longitude, latitude, elevation: null, elevationSource: null });
@@ -143,7 +160,7 @@ function AppContent() {
   }, [dispatch, gisSource]);
 
   const exportAll = useCallback((format: 'kml' | 'geojson') => {
-    const features = [...pinSource.getFeatures(), ...gisSource.getFeatures()];
+    const features = [...pinSource.getFeatures().filter((feature) => feature.getId() !== 'shared-preview'), ...gisSource.getFeatures()];
     if (features.length === 0) {
       dispatch({ type: 'notify', message: '出力するピンまたはGIS地物がありません。' });
       return;
@@ -205,9 +222,10 @@ function AppContent() {
         onExportKml={() => exportAll('kml')}
         onExportGeoJson={() => exportAll('geojson')}
         onShare={() => {
-          void copyCurrentUrl().then((copied) => {
+          const url = buildMapShareUrl(window.location.href, currentMapState());
+          void copyText(url).then((copied) => {
             if (copied) dispatch({ type: 'notify', message: '表示URLをコピーしました。' });
-            else setShareFallbackOpen(true);
+            else { setShareFallbackUrl(url); setShareFallbackOpen(true); }
           });
         }}
         onSearch={() => setSearchOpen(true)}
@@ -232,6 +250,20 @@ function AppContent() {
           <button type="button" aria-label="通知を閉じる" onClick={() => dispatch({ type: 'clear-notice' })}>×</button>
         </div>
       )}
+      <SharedPinBanner
+        pin={receivedPin.pin}
+        error={receivedPin.error}
+        onDismiss={dismissSharedPin}
+        onFocus={() => {
+          if (receivedPin.pin) sharedView.animate({ center: fromLonLat([receivedPin.pin.longitude, receivedPin.pin.latitude]), duration: 300 });
+        }}
+        onSave={() => {
+          if (!receivedPin.pin) return;
+          addPin(receivedPin.pin);
+          dismissSharedPin();
+          dispatch({ type: 'notify', message: '共有ピンを自分のピンに保存しました。' });
+        }}
+      />
       <MapGrid
         layout={effectiveLayout}
         view={sharedView}
@@ -265,6 +297,7 @@ function AppContent() {
         onDelete={deletePin}
         onClear={clearPins}
         onGoTo={(pin) => sharedView.animate({ center: fromLonLat([pin.longitude, pin.latitude]), zoom: Math.max(sharedView.getZoom() ?? 0, 16), duration: 400 })}
+        onShare={(pin) => setPinShare({ pin, map: currentMapState() })}
       />
       <GisPanel
         open={gisPanelOpen}
@@ -295,7 +328,8 @@ function AppContent() {
         zoom={centerStatus.zoom}
         onClose={() => setObservationSitesOpen(false)}
       />
-      <ShareFallbackDialog open={shareFallbackOpen} onClose={() => setShareFallbackOpen(false)} />
+      <ShareFallbackDialog open={shareFallbackOpen} url={shareFallbackUrl} onClose={() => setShareFallbackOpen(false)} />
+      {pinShare && <PinShareDialog key={pinShare.pin.id} pin={pinShare.pin} map={pinShare.map} onClose={() => setPinShare(null)} />}
     </main>
   );
 }

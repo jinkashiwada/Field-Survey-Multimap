@@ -120,6 +120,14 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
 .dialog-backdrop { position: fixed; z-index: 50; inset: 0; display: grid; place-items: center; padding: 1rem; background: rgb(0 0 0 / 52%); }
 .share-dialog { width: min(560px, 100%); padding: 1rem; border-radius: 0.7rem; color: #153243; background: #fff; box-shadow: 0 10px 36px rgb(0 0 0 / 35%); }
 .share-dialog h2 { margin-top: 0; }
+.pin-share-dialog { border: 1px solid #93a7b2; max-height: 90dvh; overflow-y: auto; }
+.pin-share-dialog::backdrop { background: rgb(0 0 0 / 52%); }
+.pin-share-dialog .pin-share-memo { display: flex; align-items: center; gap: 0.5rem; min-height: 44px; }
+.pin-share-dialog .pin-share-memo input { width: 22px; min-height: 22px; height: 22px; }
+.pin-share-preview { white-space: pre-wrap; overflow-wrap: anywhere; }
+.shared-pin-banner { display: flex; align-items: center; flex-wrap: wrap; gap: 0.4rem 0.75rem; padding: 0.5rem 0.75rem; max-height: 25dvh; overflow-y: auto; background: #e3f4fb; overflow-wrap: anywhere; }
+.shared-pin-banner button, .shared-pin-banner summary { min-height: 44px; padding: 0.5rem; cursor: pointer; }
+.shared-pin-banner button { background: #fff; color: #153243; border: 1px solid #93a7b2; border-radius: 0.4rem; }
 .share-dialog input { width: 100%; min-height: 44px; padding: 0.5rem; border: 1px solid #7e929d; border-radius: 0.35rem; }
 .share-dialog button { min-width: 80px; min-height: 44px; margin-top: 0.75rem; border: 1px solid #1d6687; border-radius: 0.4rem; color: #fff; background: #1d6687; font-weight: 700; }
 

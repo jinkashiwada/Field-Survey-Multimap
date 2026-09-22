@@ -3,8 +3,9 @@ import { toLonLat } from 'ol/proj';
 import type View from 'ol/View';
 import type { AppState } from '../state/appState';
 import { serializeUrlState } from '../services/urlState';
+import { appendSharedPin, type SharedPin } from '../services/pinShare';
 
-export function useHashState(state: AppState, view: View): void {
+export function useHashState(state: AppState, view: View, sharedPin: SharedPin | null = null): void {
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | undefined;
     const replaceHash = () => {
@@ -22,7 +23,7 @@ export function useHashState(state: AppState, view: View): void {
           panes: state.panes,
         });
         const url = new URL(window.location.href);
-        url.hash = hash.slice(1);
+        url.hash = appendSharedPin(hash, sharedPin).slice(1);
         window.history.replaceState(window.history.state, '', url);
       }, 250);
     };
@@ -32,5 +33,5 @@ export function useHashState(state: AppState, view: View): void {
       view.un(['change:center', 'change:resolution', 'change:rotation'], replaceHash);
       if (timer) clearTimeout(timer);
     };
-  }, [state, view]);
+  }, [state, view, sharedPin]);
 }
