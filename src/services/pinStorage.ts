@@ -1,4 +1,5 @@
 import type { PinRecord, PinType } from '../domain/pins';
+import type { SharedPin } from './pinShare';
 
 export const PIN_STORAGE_KEY = 'flood-multimap:pins:v1';
 const PIN_TYPES: readonly PinType[] = ['trace-candidate', 'needs-review', 'danger', 'memo'];
@@ -39,3 +40,28 @@ export function savePins(pins: readonly PinRecord[], storage: Pick<Storage, 'set
   }
 }
 
+function matchesSharedPin(saved: PinRecord, received: SharedPin): boolean {
+  return saved.name === received.name
+    && saved.type === received.type
+    && saved.memo === received.memo
+    && saved.longitude === received.longitude
+    && saved.latitude === received.latitude
+    && saved.elevation === received.elevation
+    && saved.elevationSource === received.elevationSource;
+}
+
+export function saveReceivedPin(
+  pin: SharedPin,
+  storage: Pick<Storage, 'getItem' | 'setItem'> = localStorage,
+): 'saved' | 'already-saved' | 'failed' {
+  const pins = loadPins(storage);
+  if (pins.some((saved) => matchesSharedPin(saved, pin))) return 'already-saved';
+  const now = new Date().toISOString();
+  const record: PinRecord = {
+    ...pin,
+    id: crypto.randomUUID(),
+    createdAt: now,
+    updatedAt: now,
+  };
+  return savePins([...pins, record], storage) ? 'saved' : 'failed';
+}

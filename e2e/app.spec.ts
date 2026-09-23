@@ -8,7 +8,7 @@ test.beforeEach(async ({ page }) => {
   });
 });
 
-test('選択ピンの共有URLを別端末で開き、一時表示から明示保存できる', async ({ page, browser }) => {
+test('選択ピンの共有URLを別端末で開くと自動保存され、再読込みでも重複しない', async ({ page, browser }) => {
   await page.goto('/#v=1&lon=140.123456&lat=36.234567&z=12.345&rot=0.3&layout=quad');
   await page.getByRole('button', { name: 'ピン追加' }).click();
   await page.getByLabel('名称', { exact: true }).fill('共有する痕跡🌊');
@@ -40,19 +40,17 @@ test('選択ピンの共有URLを別端末で開き、一時表示から明示�
     const incoming = await receiver.newPage();
     await incoming.route(/https:\/\/(cyberjapandata\.gsi\.go\.jp|disaportaldata\.gsi\.go\.jp)\//, (route) => route.abort());
     await incoming.goto(url);
-    const banner = incoming.getByRole('region', { name: '受け取った共有ピン' });
-    await expect(banner).toContainText('共有する痕跡🌊');
+    await expect(incoming.getByRole('region', { name: '受け取った共有ピン' })).toHaveCount(0);
     await expect(incoming.locator('.map-grid')).toHaveAttribute('data-layout', 'quad');
     await expect(incoming.getByText('36.234567', { exact: true })).toBeVisible();
-    expect(await incoming.evaluate(() => JSON.parse(localStorage.getItem('flood-multimap:pins:v1') ?? '[]'))).toHaveLength(1);
-    await incoming.reload();
-    await expect(banner).toContainText('共有する痕跡🌊');
-    await banner.getByText('ピンの詳細', { exact: true }).click();
-    await expect(banner).toContainText('水路横の痕跡');
-    await banner.getByRole('button', { name: '自分のピンに保存' }).click();
-    await expect(banner).toHaveCount(0);
+    const savedAfterOpen = await incoming.evaluate(() => JSON.parse(localStorage.getItem('flood-multimap:pins:v1') ?? '[]')) as Array<{ name: string; memo: string }>;
+    expect(savedAfterOpen).toHaveLength(2);
+    expect(savedAfterOpen[1]).toMatchObject({ name: '共有する痕跡🌊', memo: '水路横の痕跡\n写真を確認' });
     expect(new URLSearchParams(new URL(incoming.url()).hash.slice(1)).has('pin')).toBe(false);
     await incoming.reload();
+    expect(await incoming.evaluate(() => JSON.parse(localStorage.getItem('flood-multimap:pins:v1') ?? '[]'))).toHaveLength(2);
+    await incoming.goto(url);
+    expect(await incoming.evaluate(() => JSON.parse(localStorage.getItem('flood-multimap:pins:v1') ?? '[]'))).toHaveLength(2);
     await incoming.getByRole('button', { name: 'ピン追加' }).click();
     await expect(incoming.getByText('保存済み：2件')).toBeVisible();
     await expect(incoming.getByText('受信者の既存ピン', { exact: true })).toBeVisible();
@@ -62,7 +60,7 @@ test('選択ピンの共有URLを別端末で開き、一時表示から明示�
   }
 });
 
-test('通常の表示URLは受信ピンを含めず、コピー失敗時も同じURLを表示する', async ({ page }) => {
+test('自動保存後の通常表示URLは受信ピンを含めず、コピー失敗時も選択できる', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   const url = await buildCompactPinShareUrl('http://127.0.0.1:4173/', { ...defaultUrlState(), layout: 'quad' }, {
     name: 'URL限定ピン', memo: '', type: 'memo', longitude: 139.9, latitude: 35.9, elevation: null, elevationSource: null,
@@ -73,16 +71,16 @@ test('通常の表示URLは受信ピンを含めず、コピー失敗時も同�
   });
   await page.goto(url);
   await expect(page.getByTestId('map-pane')).toHaveCount(2);
-  await expect(page.getByRole('region', { name: '受け取った共有ピン' })).toContainText('URL限定ピン');
+  await expect(page.getByRole('region', { name: '受け取った共有ピン' })).toHaveCount(0);
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('flood-multimap:pins:v1') ?? '[]'))).toHaveLength(1);
   await page.getByRole('button', { name: '表示URLをコピー' }).click();
   const fallback = page.getByRole('dialog', { name: '表示URL', exact: true });
   const sharedUrl = await fallback.getByLabel('共有する表示URL').inputValue();
-  expect(new URLSearchParams(new URL(sharedUrl).hash.slice(1)).has('pin')).toBe(false);
+  expect(new URL(sharedUrl).hash).toMatch(/^#s=1\./);
   await fallback.getByRole('button', { name: '閉じる' }).click();
-  await page.getByRole('button', { name: '共有ピンを閉じる' }).click();
   await page.reload();
   await expect(page.getByRole('region', { name: '受け取った共有ピン' })).toHaveCount(0);
-  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('flood-multimap:pins:v1') ?? '[]'))).toEqual([]);
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('flood-multimap:pins:v1') ?? '[]'))).toHaveLength(1);
 });
 
 test('破損した共有ピンでも地図を操作できる', async ({ page }) => {
