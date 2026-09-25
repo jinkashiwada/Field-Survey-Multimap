@@ -8,6 +8,7 @@ export function displayedPhotos(
   activeId: string | null,
   aligning: boolean,
   soloId: string | null,
+  promoteSelected = true,
 ): Photo[] {
   const onlyId = aligning ? activeId : soloId;
   const result = photos
@@ -18,7 +19,7 @@ export function displayedPhotos(
         : photo,
     )
     .filter((photo) => photo.visible[pane]);
-  const activeIndex = result.findIndex((photo) => photo.id === activeId);
+  const activeIndex = promoteSelected ? result.findIndex((photo) => photo.id === activeId) : -1;
   if (activeIndex >= 0) result.push(result.splice(activeIndex, 1)[0]!);
   return result;
 }

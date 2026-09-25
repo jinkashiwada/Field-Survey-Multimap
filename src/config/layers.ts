@@ -3,6 +3,7 @@ import type { LayerDefinition } from '../domain/layers';
 const GSI_LIST = 'https://maps.gsi.go.jp/development/ichiran.html';
 const HAZARD_OPEN_DATA = 'https://disaportal.gsi.go.jp/hazardmapportal/hazardmap/copyright/opendata.html';
 const GSI_VECTOR = 'https://maps.gsi.go.jp/development/vt_expt.html';
+const GSI_RIVER_CENTERLINE = 'https://github.com/gsi-cyberjapan/experimental_rvrcl';
 const GSI_DEM = 'https://maps.gsi.go.jp/development/demtile.html';
 const GSI_ATTRIBUTION = '国土地理院';
 const GSI_PHOTO_ATTRIBUTION = '国土地理院（低ズーム画像：Landsat 8／USGS、世界衛星モザイク／NASA・USGS、海底地形／GEBCO）';
@@ -106,10 +107,16 @@ export const layerRegistry: readonly LayerDefinition[] = [
     description: '鉄道中心線を表示します。試験公開データであり、更新・仕様変更や未収録の可能性があります。', stability: 'experimental',
   },
   {
-    id: 'gsi-vector-river', titleJa: '河川中心線（試験公開）', titleEn: 'River Centerlines (Experimental)', category: 'hydrography', layerRole: 'overlay',
+    id: 'gsi-vector-river', titleJa: '河川・水域（地理院地図Vector）', titleEn: 'Rivers and Water Areas (Experimental)', category: 'hydrography', layerRole: 'overlay',
     sourceType: 'gsi-vector-tile', vectorKind: 'river', url: 'https://cyberjapandata.gsi.go.jp/xyz/experimental_bvmap/{z}/{x}/{y}.pbf', minZoom: 6, maxZoom: 16,
     defaultOpacity: 0.9, attribution: '国土地理院・地理院地図Vector（試験公開）', legendUrl: GSI_VECTOR, sourcePageUrl: GSI_VECTOR,
-    description: 'ZL6～7の一般化河川線を連続ガイドとして保持し、ZL8以上では詳細中心線と水域を重ねます。高ズームの破線は位置追跡用の一般化線で、実河道とずれる場合があります。河川管理区分ではありません。', stability: 'experimental',
+    description: 'ZL6～7の大・中・小・極小の一般化河川線を連続ガイドとして保持し、ZL8以上では詳細な河川線と水域を重ねます。高ズームの破線は位置追跡用の一般化線で、実河道とずれる場合があります。河川管理区分ではありません。', stability: 'experimental',
+  },
+  {
+    id: 'gsi-river-centerline', titleJa: '河川中心線（地図情報・試験公開）', titleEn: 'River Centerlines (GSI Experimental)', category: 'hydrography', layerRole: 'overlay',
+    sourceType: 'gsi-river-centerline', url: 'https://cyberjapandata.gsi.go.jp/xyz/experimental_rvrcl/{z}/{x}/{y}.geojson', minZoom: 15, maxZoom: 18,
+    defaultOpacity: 0.95, attribution: '国土地理院・地図情報（河川中心線）ベクトルタイル提供実験', legendUrl: GSI_RIVER_CENTERLINE, sourcePageUrl: GSI_RIVER_CENTERLINE,
+    description: '河川中心線そのものを収録した別の試験公開データです。ZL16のGeoJSONタイルを利用し、ZL15以上で表示します。整備・更新時期が写真と異なる場合があるため、位置を現地写真や航空写真で確認してください。', stability: 'experimental',
   },
   {
     id: 'gsi-vector-contour', titleJa: '等高線（試験公開・省電力）', titleEn: 'Contours (Experimental)', category: 'terrain', layerRole: 'overlay',

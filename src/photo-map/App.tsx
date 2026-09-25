@@ -41,6 +41,7 @@ import { PhotoBatchControls, PhotoList } from './PhotoList';
 import { PanePopover } from './PanePopover';
 import { DrawingPanel } from './DrawingPanel';
 import { displayedPhotos } from './photoDisplay';
+import { ImageExportScreen } from './ImageExportScreen';
 
 type PaneName = 'photo' | 'A' | 'B';
 type Popup = { pane: PaneName; type: 'layers' | 'drawing' };
@@ -84,6 +85,8 @@ export function PhotoMapApp() {
     [tab, setTab] = useState<'photos' | 'gcps'>('photos');
   const [toolPane, setToolPane] = useState<PaneName | null>(null);
   const [soloMapPhotoIds, setSoloMapPhotoIds] = useState<[string | null, string | null]>([null, null]);
+  const [promoteSelected, setPromoteSelected] = useState(true);
+  const [exportScreen, setExportScreen] = useState(false);
   const [popup, setPopup] = useState<Popup | null>(null);
   const [selectedGcp, setSelectedGcp] = useState<string | null>(null),
     [selectedDrawing, setSelectedDrawing] = useState<string | null>(null);
@@ -118,8 +121,9 @@ export function PhotoMapApp() {
       project.activePhotoId,
       tab === 'gcps',
       soloMapPhotoIds[pane],
+      promoteSelected,
     )) as [Photo[], Photo[]],
-    [project.photos, project.activePhotoId, tab, soloMapPhotoIds],
+    [project.photos, project.activePhotoId, tab, soloMapPhotoIds, promoteSelected],
   );
   const dirty = signature(project) !== savedSignature;
   const change = useCallback(
@@ -167,8 +171,16 @@ export function PhotoMapApp() {
         if (!busy) setDialog('save');
       }
       if (e.key === 'Escape' && !busy) {
-        setMode('move');
-        setPopup(null);
+        if (exportScreen) return;
+        if (dialog) setDialog(null);
+        else if (popup) setPopup(null);
+        else if (mode !== 'move') { setMode('move'); setToolPane(null); }
+        else {
+          change((p) => ({ ...p, activePhotoId: null, layout: 'single' }), false);
+          setMaximized(null);
+          setTab('photos');
+          setSelectedGcp(null);
+        }
       }
       const input =
         e.target instanceof HTMLElement &&
@@ -185,7 +197,7 @@ export function PhotoMapApp() {
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [busy]);
+  }, [busy, dialog, popup, mode, change, exportScreen]);
   // No localStorage, URL state, analytics or project-data network requests.
   const run = async (task: (signal: AbortSignal) => Promise<void>) => {
     if (job.current) return;
@@ -233,12 +245,14 @@ export function PhotoMapApp() {
         ...p,
         photos: [...p.photos, ...loaded.map((v) => v.photo)],
         activePhotoId: loaded[0]?.photo.id ?? p.activePhotoId,
+        layout: p.layout === 'single' && loaded.length ? 'register' : p.layout,
       }));
       setMode('move');
       setTab('photos');
       setPopup(null);
       setSidebar(true);
       setSelectedGcp(null);
+      setPromoteSelected(true);
     });
   const openArchive = (file: File) =>
     void run(async (signal) => {
@@ -268,6 +282,7 @@ export function PhotoMapApp() {
       setPopup(null);
       setToolPane(null);
       setSoloMapPhotoIds([null, null]);
+      setPromoteSelected(true);
       setTab('photos');
       setMaximized(null);
       setExportEdge(result.project.export.longEdge);
@@ -484,6 +499,7 @@ export function PhotoMapApp() {
     setPopup(null);
     setToolPane(null);
     setSoloMapPhotoIds([null, null]);
+    setPromoteSelected(true);
     setTab('photos');
     setMaximized(null);
     setFilterPhoto('');
@@ -530,8 +546,9 @@ export function PhotoMapApp() {
     change((p) => ({
       ...p,
       activePhotoId: photoId,
-      layout: p.layout === 'maps' ? 'compare' : p.layout,
+      layout: p.layout === 'maps' || p.layout === 'single' ? 'compare' : p.layout,
     }), false);
+    setPromoteSelected(true);
     setSelectedGcp(null);
     setMode('move');
     setToolPane(null);
@@ -541,6 +558,15 @@ export function PhotoMapApp() {
   };
   const setSoloMapPhoto = (pane: 0 | 1, photoId: string | null) => {
     setSoloMapPhotoIds((ids) => ids.map((id, i) => i === pane ? photoId : id) as [string | null, string | null]);
+  };
+  const reorderPhoto = (photoId: string, edge: 'front' | 'back') => {
+    change((p) => {
+      const photo = p.photos.find((item) => item.id === photoId);
+      if (!photo) return p;
+      const others = p.photos.filter((item) => item.id !== photoId);
+      return { ...p, photos: edge === 'front' ? [...others, photo] : [photo, ...others] };
+    });
+    setPromoteSelected(false);
   };
   const setTool = (tool: Mode, target: PaneName | null = null) => {
     setMode(tool);
@@ -601,6 +627,20 @@ export function PhotoMapApp() {
             </small>
           </span>
           <div>
+            <label className="pm-heading-opacity">
+              <span>{isPhoto ? '逆投影' : '重畳'} 透過{Math.round((1 - (isPhoto ? project.inverse.opacity : project.panes[index].overlayOpacity ?? 1)) * 100)}%</span>
+              <input
+                aria-label={`${paneLabel(name)}の${isPhoto ? '逆投影' : '重畳レイヤー'}の透過度`}
+                type="range" min="0" max="1" step="0.01"
+                value={1 - (isPhoto ? project.inverse.opacity : project.panes[index].overlayOpacity ?? 1)}
+                onChange={(event) => {
+                  const opacity = 1 - Number(event.target.value);
+                  change((p) => isPhoto
+                    ? { ...p, inverse: { ...p.inverse, opacity } }
+                    : { ...p, panes: p.panes.map((pane, i) => i === index ? { ...pane, overlayOpacity: opacity } : pane) as Project['panes'] });
+                }}
+              />
+            </label>
             {isPhoto && active && (
               <div className="pm-photo-navigation" aria-label="写真を切り替える">
                 <button
@@ -689,6 +729,7 @@ export function PhotoMapApp() {
           onAction={(action) => onSurfaceAction(name, action)}
           onSelectPhoto={choosePhoto}
           onSoloPhoto={(id) => setSoloMapPhoto(index, id)}
+          onReorderPhoto={reorderPhoto}
           onError={report}
           onViewChange={(v) =>
             setMapStatus(
@@ -805,6 +846,7 @@ export function PhotoMapApp() {
       </section>
     );
   };
+  if (exportScreen) return <ImageExportScreen project={project} pool={pool} sourceView={view} onClose={() => setExportScreen(false)} />;
   return (
     <main
       className="pm-app"
@@ -845,6 +887,9 @@ export function PhotoMapApp() {
           </button>
           <button disabled={!!busy} onClick={() => zipInput.current?.click()}>
             ZIPを開く
+          </button>
+          <button disabled={!!busy} onClick={() => { setExportScreen(true); setPopup(null); setMode('move'); }}>
+            オルソ画像エクスポート
           </button>
           <button
             className="pm-primary"
@@ -894,6 +939,7 @@ export function PhotoMapApp() {
         <div className="pm-layouts">
           {(
             [
+              ['single', '地図1面'],
               ['register', '位置合わせ'],
               ['compare', '写真＋地図2面'],
               ['maps', '地図2面'],
@@ -903,7 +949,8 @@ export function PhotoMapApp() {
               className={project.layout === layout ? 'is-active' : ''}
               key={layout}
               onClick={() => {
-                change((p) => ({ ...p, layout }), false);
+                change((p) => ({ ...p, layout, activePhotoId: layout === 'single' ? null : p.activePhotoId }), false);
+                if (layout === 'single') { setTab('photos'); setSelectedGcp(null); }
                 setMaximized(null);
                 setPopup(null);
                 setMode('move');
@@ -974,7 +1021,7 @@ export function PhotoMapApp() {
                     pool={pool}
                     onSelect={choosePhoto}
                     onChange={updatePhoto}
-                    onReorder={(photos) => change((p) => ({ ...p, photos }))}
+                    onReorder={(photos) => { change((p) => ({ ...p, photos })); setPromoteSelected(false); }}
                   />
                   {active && (
                     <PhotoDetails
@@ -1006,6 +1053,7 @@ export function PhotoMapApp() {
                             false,
                           );
                           setSelectedGcp(null);
+                          setPromoteSelected(true);
                         }}
                       >
                         {project.photos.map((p) => (
@@ -1074,10 +1122,10 @@ export function PhotoMapApp() {
             pane(maximized)
           ) : (
             <>
-              {project.layout !== 'maps' && pane('photo')}
+              {project.layout !== 'maps' && project.layout !== 'single' && pane('photo')}
               {pane('A')}
-              {project.layout !== 'register' && pane('B')}
-              <div
+              {project.layout !== 'register' && project.layout !== 'single' && pane('B')}
+              {project.layout !== 'single' && <div
                 className="pm-divider"
                 role="separator"
                 aria-label="画面の区切り"
@@ -1122,7 +1170,7 @@ export function PhotoMapApp() {
                 onPointerUp={(e) =>
                   e.currentTarget.releasePointerCapture(e.pointerId)
                 }
-              />
+              />}
             </>
           )}
         </div>

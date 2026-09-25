@@ -16,7 +16,7 @@ export type Matrix3 = [
 ];
 export type Mode =
   'move' | 'gcp' | 'crop' | 'mask' | 'line' | 'polygon' | 'edit';
-export type Layout = 'register' | 'compare' | 'maps';
+export type Layout = 'single' | 'register' | 'compare' | 'maps';
 export interface Gcp {
   id: string;
   image?: Point;
@@ -75,7 +75,7 @@ export interface GisDataset {
   visible: boolean;
 }
 export interface Project {
-  schemaVersion: 1;
+  schemaVersion: 2;
   appVersion: string;
   name: string;
   photos: Photo[];
@@ -107,12 +107,13 @@ export function emptyProject(): Project {
     baseLayerId,
     overlayLayerIds,
     opacityByLayerId: {},
+    overlayOpacity: 1,
     elevationColorRange: { minimum: 0, maximum: 20 },
     autoElevationRange: false,
   });
   return {
-    schemaVersion: 1,
-    appVersion: '1.0.0',
+    schemaVersion: 2,
+    appVersion: '1.1.0',
     name: '新しい判読プロジェクト',
     photos: [],
     drawings: [],

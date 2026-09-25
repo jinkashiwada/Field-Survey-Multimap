@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "浸水域判読支援プロジェクト v1",
+  "title": "浸水域判読支援プロジェクト v2",
   "description": "ZIP project.jsonの公開形式。originals/<写真ID>に元ファイルを格納。座標・参照・行列・画像寸法の整合性は追加の意味検証を要する。",
   "type": "object",
   "properties": {
@@ -322,6 +322,11 @@
             "maximum": 1
           }
         },
+        "overlayOpacity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
         "elevationColorRange": {
           "type": "object",
           "properties": {
@@ -342,6 +347,7 @@
         "baseLayerId",
         "overlayLayerIds",
         "opacityByLayerId",
+        "overlayOpacity",
         "elevationColorRange",
         "autoElevationRange"
       ]
@@ -350,7 +356,7 @@
       "type": "object",
       "properties": {
         "schemaVersion": {
-          "const": 1
+          "const": 2
         },
         "appVersion": {
           "type": "string",
@@ -415,7 +421,7 @@
           "type": ["string", "null"]
         },
         "layout": {
-          "enum": ["register", "compare", "maps"]
+          "enum": ["single", "register", "compare", "maps"]
         },
         "split": {
           "type": "number",

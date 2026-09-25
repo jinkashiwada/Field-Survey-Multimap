@@ -185,9 +185,9 @@ test('ピンを作成して再読込み後も保持する', async ({ page }) => 
 });
 
 test('geolocationをモックして現在地へ移動できる', async ({ page, context }) => {
-  await context.grantPermissions(['geolocation'], { origin: 'http://127.0.0.1:4173' });
-  await context.setGeolocation({ longitude: 140.123456, latitude: 36.123456, accuracy: 12 });
   await page.goto('/');
+  await context.grantPermissions(['geolocation'], { origin: new URL(page.url()).origin });
+  await context.setGeolocation({ longitude: 140.123456, latitude: 36.123456, accuracy: 12 });
   await page.getByRole('button', { name: '現在地を取得して表示' }).click();
   await expect(page.getByText(/現在位置を表示しました/)).toBeVisible();
   await expect.poll(() => new URL(page.url()).hash).toContain('lon=140.123456');
@@ -251,7 +251,7 @@ test('座標を検索して移動できる', async ({ page }) => {
 test('道路・鉄道・河川・等高線を独立して選択できる', async ({ page }) => {
   await page.goto('/');
   await page.getByLabel('画面1のレイヤー設定').click();
-  for (const name of ['主要道路（試験公開）', '鉄道（試験公開）', '河川中心線（試験公開）', '等高線（試験公開・省電力）']) {
+  for (const name of ['主要道路（試験公開）', '鉄道（試験公開）', '河川・水域（地理院地図Vector）', '等高線（試験公開・省電力）']) {
     await page.getByText(name, { exact: false }).first().click();
   }
   await expect.poll(() => decodeURIComponent(new URL(page.url()).hash)).toContain('gsi-vector-river');

@@ -23,9 +23,10 @@ describe('river vector-tile style', () => {
     expect(riverGuideStyle(feature('river', 55_302), resolutionAtZoom(13))).toBeDefined();
   });
 
-  it('drops small generalized guides after zoom 8 to avoid clutter', () => {
+  it('keeps small and tiny generalized rivers as dashed guides when detail tiles have no line', () => {
     expect(riverGuideStyle(feature('river', 55_303), resolutionAtZoom(7))).toBeDefined();
-    expect(riverGuideStyle(feature('river', 55_303), resolutionAtZoom(8))).toBeUndefined();
+    expect(riverGuideStyle(feature('river', 55_303), resolutionAtZoom(13))).toBeDefined();
+    expect(riverGuideStyle(feature('river', 55_304), resolutionAtZoom(16))).toBeDefined();
   });
 
   it('draws detailed river lines and water areas without duplicating generalized lines', () => {

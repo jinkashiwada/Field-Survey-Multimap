@@ -241,6 +241,28 @@ export async function saveArchive(
     worker.stop();
   }
 }
+/** Stream generated comparison images into a ZIP without collecting them in memory. */
+export async function saveImageArchive(
+  signal: AbortSignal,
+  produce: (add: (path: string, blob: Blob) => Promise<void>) => Promise<void>,
+): Promise<Blob> {
+  const worker = new ArchiveWorker(signal);
+  let total = 0;
+  try {
+    await worker.request({ command: 'begin' });
+    await produce(async (path, blob) => {
+      if (!/^[a-zA-Z0-9_./-]+$/.test(path) || path.includes('..'))
+        throw new Error('画像ZIPのファイル名が不正です。');
+      total += blob.size;
+      if (total > 2 * 1024 ** 3 - 1024 ** 2)
+        throw new Error('画像ZIPが2 GBを超えます。出力解像度を下げてください。');
+      await worker.request({ command: 'add', path, blob });
+    });
+    return (await worker.request({ command: 'close' })).blob!;
+  } finally {
+    worker.stop();
+  }
+}
 export function download(blob: Blob, name: string) {
   const url = URL.createObjectURL(blob),
     a = document.createElement('a');

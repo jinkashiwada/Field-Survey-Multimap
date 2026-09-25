@@ -1,5 +1,8 @@
 import type { FeatureLike } from 'ol/Feature';
 import MVT from 'ol/format/MVT';
+import GeoJSON from 'ol/format/GeoJSON';
+import type Feature from 'ol/Feature';
+import type Geometry from 'ol/geom/Geometry';
 import type BaseLayer from 'ol/layer/Base';
 import LayerGroup from 'ol/layer/Group';
 import TileLayer from 'ol/layer/Tile';
@@ -7,6 +10,7 @@ import VectorTileLayer from 'ol/layer/VectorTile';
 import ImageTile from 'ol/source/ImageTile';
 import TileSource from 'ol/source/Tile';
 import VectorTileSource from 'ol/source/VectorTile';
+import { createXYZ } from 'ol/tilegrid';
 import XYZ from 'ol/source/XYZ';
 import { Fill, Stroke, Style, Text } from 'ol/style';
 import type { ElevationColorRange, LayerDefinition, VectorLayerKind } from '../domain/layers';
@@ -14,6 +18,7 @@ import type { ElevationColorRange, LayerDefinition, VectorLayerKind } from '../d
 const xyzSourceCache = new Map<string, XYZ>();
 const vectorTileSourceCache = new Map<string, VectorTileSource>();
 const riverGuideSourceCache = new Map<string, VectorTileSource>();
+const riverCenterlineSourceCache = new Map<string, VectorTileSource<Feature<Geometry>>>();
 const demImageSourceCache = new Map<string, ImageTile>();
 
 const majorRoadStyle = new Style({ stroke: new Stroke({ color: '#dd3b2a', width: 2.4 }) });
@@ -51,6 +56,17 @@ const largeRiverGuideStyle = [
 const mediumRiverGuideStyle = [
   new Style({ stroke: new Stroke({ color: 'rgba(255,255,255,0.75)', width: 3.4 }) }),
   new Style({ stroke: new Stroke({ color: 'rgba(8,120,190,0.74)', width: 1.8, lineDash: [7, 5] }) }),
+];
+const smallRiverGuideStyle = [
+  new Style({ stroke: new Stroke({ color: 'rgba(255,255,255,0.7)', width: 2.8 }) }),
+  new Style({ stroke: new Stroke({ color: 'rgba(35,133,190,0.78)', width: 1.5, lineDash: [6, 5] }) }),
+];
+const tinyRiverGuideStyle = new Style({
+  stroke: new Stroke({ color: 'rgba(68,151,194,0.75)', width: 1.2, lineDash: [4, 5] }),
+});
+const centerlineStyle = [
+  new Style({ stroke: new Stroke({ color: 'rgba(255,255,255,0.94)', width: 5 }) }),
+  new Style({ stroke: new Stroke({ color: '#0053a6', width: 2.8 }) }),
 ];
 const waterAreaStyle = new Style({
   fill: new Fill({ color: 'rgba(38,151,210,0.14)' }),
@@ -130,9 +146,8 @@ export function riverGuideStyle(feature: FeatureLike, resolution = 0): Style | S
     const code = Number(feature.get('ftCode'));
     if (code === 55_301) return zoom < 8 ? largeRiverStyle : largeRiverGuideStyle;
     if (code === 55_302) return zoom < 8 ? mediumRiverStyle : mediumRiverGuideStyle;
-    if (zoom >= 8) return undefined;
-    if (code === 55_303) return smallRiverStyle;
-    if (code === 55_304) return tinyRiverStyle;
+    if (code === 55_303) return zoom < 8 ? smallRiverStyle : smallRiverGuideStyle;
+    if (code === 55_304) return zoom < 8 ? tinyRiverStyle : tinyRiverGuideStyle;
     return undefined;
   }
   if (layer === 'label' && Number(feature.get('annoCtg')) === 322) {
@@ -173,7 +188,7 @@ function getSharedVectorTileSource(definition: LayerDefinition): VectorTileSourc
   return source;
 }
 
-function getSharedRiverGuideSource(definition: LayerDefinition): VectorTileSource {
+export function getSharedRiverGuideSource(definition: LayerDefinition): VectorTileSource {
   const cached = riverGuideSourceCache.get(definition.url);
   if (cached) return cached;
   const source = new VectorTileSource({
@@ -185,6 +200,20 @@ function getSharedRiverGuideSource(definition: LayerDefinition): VectorTileSourc
     transition: 100,
   });
   riverGuideSourceCache.set(definition.url, source);
+  return source;
+}
+
+function getSharedRiverCenterlineSource(definition: LayerDefinition): VectorTileSource<Feature<Geometry>> {
+  const cached = riverCenterlineSourceCache.get(definition.url);
+  if (cached) return cached;
+  const source = new VectorTileSource({
+    url: definition.url,
+    tileGrid: createXYZ({ minZoom: 16, maxZoom: 16, tileSize: 256 }),
+    format: new GeoJSON(),
+    attributions: definition.attribution,
+    transition: 100,
+  });
+  riverCenterlineSourceCache.set(definition.url, source);
   return source;
 }
 
@@ -206,7 +235,7 @@ const elevationPalette = [
   [165, 0, 38],
 ] as const;
 
-function colorForElevation(value: number, range: ElevationColorRange): readonly number[] {
+export function colorForElevation(value: number, range: ElevationColorRange): readonly number[] {
   const normalized = Math.min(1, Math.max(0, (value - range.minimum) / (range.maximum - range.minimum)));
   const scaled = normalized * (elevationPalette.length - 1);
   const lowerIndex = Math.floor(scaled);
@@ -276,6 +305,7 @@ function getSharedDemSource(definition: LayerDefinition, range: ElevationColorRa
 
 export function getSharedLayerSource(definition: LayerDefinition, range: ElevationColorRange): TileSource {
   if (definition.sourceType === 'gsi-vector-tile') return getSharedVectorTileSource(definition);
+  if (definition.sourceType === 'gsi-river-centerline') return getSharedRiverCenterlineSource(definition);
   if (definition.sourceType === 'dem-rgb') return getSharedDemSource(definition, range);
   return getSharedXyzSource(definition);
 }
@@ -311,6 +341,13 @@ export function createMapLayer(
       source: getSharedVectorTileSource(definition),
       declutter: true,
       style: (feature, resolution) => vectorTileStyle(definition.vectorKind!, feature, resolution),
+    });
+  }
+  if (definition.sourceType === 'gsi-river-centerline') {
+    return new VectorTileLayer({
+      ...common,
+      source: getSharedRiverCenterlineSource(definition),
+      style: centerlineStyle,
     });
   }
   if (definition.sourceType === 'dem-rgb') {

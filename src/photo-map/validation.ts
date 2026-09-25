@@ -26,11 +26,15 @@ function checkMatrix(m: unknown): asserts m is Matrix3 {
 /** Validate all state before swapping the open project. No imported URLs are executed. */
 export function validateProject(input: unknown): Project {
   assert(input && typeof input === 'object');
-  const p = input as Project;
+  const incoming = input as Omit<Project, 'schemaVersion'> & { schemaVersion: number };
   assert(
-    p.schemaVersion === 1,
+    incoming.schemaVersion === 1 || incoming.schemaVersion === 2,
     'このZIPのプロジェクト形式には対応していません。',
   );
+  assert(Array.isArray(incoming.panes) && incoming.panes.length === 2);
+  const p: Project = incoming.schemaVersion === 1
+    ? { ...incoming, schemaVersion: 2, panes: incoming.panes.map((pane) => ({ ...pane, overlayOpacity: 1 })) as Project['panes'] }
+    : incoming as Project;
   assert(text(p.name, 200) && text(p.appVersion, 100));
   assert(
     Array.isArray(p.photos) &&
@@ -41,7 +45,7 @@ export function validateProject(input: unknown): Project {
       p.gis.length <= 100,
   );
   assert(
-    ['register', 'compare', 'maps'].includes(p.layout) &&
+    ['single', 'register', 'compare', 'maps'].includes(p.layout) &&
       finite(p.split) &&
       p.split >= 25 &&
       p.split <= 75,
@@ -280,7 +284,8 @@ export function validateProject(input: unknown): Project {
         typeof pane.opacityByLayerId === 'object' &&
         Object.values(pane.opacityByLayerId).every(
           (v) => finite(v) && v >= 0 && v <= 1,
-        ),
+        ) &&
+        finite(pane.overlayOpacity) && pane.overlayOpacity >= 0 && pane.overlayOpacity <= 1,
     );
     assert(
       pane.elevationColorRange &&

@@ -27,7 +27,7 @@ function crc(bytes: Buffer) {
   }
   return (c ^ 0xffffffff) >>> 0;
 }
-function png(width = 600, height = 400, solid = false): Buffer {
+function png(width = 600, height = 400, solid = false, color?: readonly [number, number, number]): Buffer {
   const chunk = (name: string, data: Buffer) => {
     const type = Buffer.from(name),
       length = Buffer.alloc(4),
@@ -46,9 +46,9 @@ function png(width = 600, height = 400, solid = false): Buffer {
     const row = y * (width * 4 + 1);
     for (let x = 0; x < width; x++) {
       const i = row + 1 + x * 4;
-      rows[i] = solid ? 30 : y < height / 2 ? 230 : 40;
-      rows[i + 1] = solid ? 170 : x < width / 2 ? 70 : 160;
-      rows[i + 2] = solid ? 100 : y < height / 2 ? 55 : 215;
+      rows[i] = color?.[0] ?? (solid ? 30 : y < height / 2 ? 230 : 40);
+      rows[i + 1] = color?.[1] ?? (solid ? 170 : x < width / 2 ? 70 : 160);
+      rows[i + 2] = color?.[2] ?? (solid ? 100 : y < height / 2 ? 55 : 215);
       rows[i + 3] = 255;
     }
   }
@@ -220,6 +220,290 @@ test.beforeEach(async ({ page }) => {
   );
   await page.setViewportSize({ width: 1920, height: 1080 });
   await page.goto(PHOTO_PATH);
+});
+
+test('地図縮尺、写真選択解除、各画面の透過度と明示的な表示順を保持する', async ({ page }) => {
+  const project = fixture(3);
+  project.panes[0].overlayLayerIds = ['gsi-vector-major-road', 'hazard-flood-l2'];
+  project.panes[0].opacityByLayerId = { 'gsi-vector-major-road': .1, 'hazard-flood-l2': .9 };
+  await openFixture(page, project);
+  await expect(page.getByTestId('map-0').locator('.ol-scale-bar')).toBeVisible();
+  await expect(page.getByTestId('map-1').locator('.ol-scale-bar')).toBeVisible();
+  await expect(page.getByTestId('map-0').locator('.ol-scale-bar')).toContainText(/m|km/);
+  const firstScale = await page.getByTestId('map-0').locator('.ol-scale-bar').innerText();
+  await page.getByTestId('map-0').dblclick({ position: { x: 75, y: 75 } });
+  await expect.poll(() => page.getByTestId('map-0').locator('.ol-scale-bar').innerText()).not.toBe(firstScale);
+  await page.getByRole('slider', { name: '写真の逆投影の透過度' }).fill('0.35');
+  await page.getByRole('slider', { name: '地図Aの重畳レイヤーの透過度' }).fill('0.4');
+  await page.getByRole('slider', { name: '地図Bの重畳レイヤーの透過度' }).fill('0.75');
+  await page.getByRole('button', { name: '地図Aのレイヤー', exact: true }).click();
+  await expect(page.getByLabel('主要道路（試験公開）の透過度')).toHaveCount(0);
+  await expect(page.getByLabel('洪水浸水想定区域・想定最大規模の透過度')).toHaveCount(0);
+  await page.getByRole('button', { name: '地図Aのレイヤー', exact: true }).click();
+  await page.getByRole('button', { name: '地図1面' }).click();
+  await expect(page.getByTestId('photo-canvas')).toHaveCount(0);
+  await expect(page.getByTestId('map-1')).toHaveCount(0);
+  await expect(page.getByTestId('map-0').locator('.ol-scale-bar')).toBeVisible();
+  await page.getByRole('button', { name: '合成写真 3を編集' }).click();
+  await expect(page.getByTestId('photo-canvas')).toBeVisible();
+  const box = (await page.getByTestId('map-0').boundingBox())!;
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2, { button: 'right' });
+  await expect(page.getByRole('menu', { name: '合成写真 3の操作' })).toBeVisible();
+  await page.getByRole('menuitem', { name: '最背面に移動' }).click();
+  await expect(page.locator('.pm-photo-card').last()).toHaveAttribute('data-photo-id', 'photo-2');
+  const saved = await savedProject(page);
+  expect(saved.project.photos[0]!.id).toBe('photo-2');
+  expect(saved.project.panes[0].overlayOpacity).toBeCloseTo(.6);
+  expect(saved.project.panes[1].overlayOpacity).toBeCloseTo(.25);
+  expect(saved.project.inverse.opacity).toBeCloseTo(.65);
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('photo-canvas')).toHaveCount(0);
+  const cleared = (await savedProject(page)).project;
+  expect(cleared.schemaVersion).toBe(2);
+  expect(cleared.layout).toBe('single');
+  expect(cleared.activePhotoId).toBeNull();
+});
+
+test('同一画角の比較画像と斜め写真ペアを画像専用ZIPに出力する', async ({ page }) => {
+  const outgoing: { url: string; method: string; body: string | null }[] = [];
+  page.on('request', (request) => outgoing.push({ url: request.url(), method: request.method(), body: request.postData() }));
+  await page.route('**/experimental_rvrcl/**', (route) => route.fulfill({
+    status: 200, contentType: 'application/geo+json', headers: { 'access-control-allow-origin': '*' },
+    body: JSON.stringify({ type: 'FeatureCollection', features: [] }),
+  }));
+  await page.route('**/dem_png/**', (route) => route.fulfill({
+    status: 200, contentType: 'image/png', headers: { 'access-control-allow-origin': '*' },
+    body: png(256, 256, true, [0, 3, 232]), // 10.00 m in GSI DEM RGB.
+  }));
+  const project = fixture(2);
+  project.photos[0]!.crop = [80, 60, 520, 340];
+  project.panes[0].overlayLayerIds = ['gsi-vector-major-road', 'gsi-vector-river'];
+  project.panes[1].overlayLayerIds = [];
+  await openFixture(page, project);
+  await page.getByRole('button', { name: 'オルソ画像エクスポート' }).click();
+  await page.getByLabel('画像の長辺（px）').fill('256');
+  await page.setViewportSize({ width: 1536, height: 864 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth && document.documentElement.scrollHeight <= innerHeight)).toBe(true);
+  await expect(page.getByRole('heading', { name: 'オルソ画像エクスポート' })).toBeVisible();
+  const chrome = page.getByRole('img', { name: '縮尺・北の方位・出典・クレジットの出力プレビュー' });
+  await expect(chrome).toBeVisible();
+  const beforeNorth = await chrome.evaluate((node: HTMLCanvasElement) => node.toDataURL());
+  const preview = (await page.locator('.pm-export-preview').boundingBox())!;
+  await page.mouse.move(preview.x + 90, preview.y + 120);
+  await page.mouse.down({ button: 'right' });
+  await page.mouse.move(preview.x + 190, preview.y + 120, { steps: 5 });
+  await page.mouse.up({ button: 'right' });
+  await expect.poll(() => chrome.evaluate((node: HTMLCanvasElement) => node.toDataURL())).not.toBe(beforeNorth);
+  await page.getByRole('button', { name: '合成写真 1を前面へ' }).click();
+  await expect(page.locator('.pm-export-photo-row').first()).toContainText('合成写真 1');
+  await page.locator('.pm-export-crop .pm-crop-se').dragTo(page.locator('.pm-export-preview'), { targetPosition: { x: 920, y: 590 } });
+  const cropBeforeMove = (await page.locator('.pm-export-crop').boundingBox())!;
+  await page.locator('.pm-export-crop > b').dragTo(page.locator('.pm-export-preview'), { targetPosition: { x: 500, y: 300 } });
+  const cropAfterMove = (await page.locator('.pm-export-crop').boundingBox())!;
+  const chromeAfterMove = (await chrome.boundingBox())!;
+  expect(Math.abs(cropAfterMove.x - cropBeforeMove.x) + Math.abs(cropAfterMove.y - cropBeforeMove.y)).toBeGreaterThan(10);
+  expect(Math.abs(chromeAfterMove.x - cropAfterMove.x)).toBeLessThan(2);
+  expect(Math.abs(chromeAfterMove.y - cropAfterMove.y)).toBeLessThan(2);
+  let hazardRequests = 0;
+  await page.route('**/01_flood_l2_shinsuishin_data/**', (route) => {
+    hazardRequests++;
+    return hazardRequests === 1
+      ? route.fulfill({ status: 404, body: 'fixture: uncovered tile' })
+      : route.fulfill({ status: 200, contentType: 'image/png', headers: { 'access-control-allow-origin': '*' }, body: png(256, 256) });
+  });
+  const downloaded = page.waitForEvent('download', { timeout: 150000 });
+  await page.getByRole('button', { name: '比較画像ZIPを書き出す' }).click();
+  const file = await downloaded;
+  const reader = new ZipReader(new BlobReader(new Blob([new Uint8Array(await readFile((await file.path())!))])));
+  const entries = await reader.getEntries();
+  const names = entries.map((entry) => entry.filename);
+  expect(names).toContain('01_ortho_composite.png');
+  expect(names).toContain('02_standard_map.png');
+  expect(names).toContain('03_aerial.png');
+  expect(names).toContain('04_aerial_rivers.png');
+  expect(names).toContain('05_flood_hazard_l2.png');
+  expect(names).toContain('06_flood_hazard_l1.png');
+  expect(names).toContain('08_relief.png');
+  expect(names).toContain('09_relief_custom.png');
+  expect(names).toContain('photo_001_01_reference.png');
+  expect(names).toContain('photo_001_02_after.png');
+  expect(names).toContain('sources.txt');
+  expect(names).not.toContain('project.json');
+  expect(names.some((name) => name.startsWith('originals/'))).toBe(false);
+  expect(hazardRequests).toBeGreaterThan(1);
+  const dimensions = async (name: string) => {
+    const entry = entries.find((item) => item.filename === name)!;
+    if (!('getData' in entry)) throw new Error('missing image');
+    const bytes = new DataView(await (await entry.getData(new BlobWriter())).arrayBuffer());
+    return [bytes.getUint32(16), bytes.getUint32(20)];
+  };
+  const mapSize = await dimensions('01_ortho_composite.png');
+  expect(Math.abs(mapSize[0]! / mapSize[1]! - cropAfterMove.width / cropAfterMove.height)).toBeLessThan(.02);
+  for (const name of names.filter((value) => /^0[1-9]_.*\.png$/.test(value)))
+    expect(await dimensions(name)).toEqual(mapSize);
+  expect(await dimensions('photo_001_01_reference.png')).toEqual(await dimensions('photo_001_02_after.png'));
+  const sample = async (name: string, x = .5, y = .5, footer = 0) => {
+    const entry = entries.find((item) => item.filename === name)!;
+    if (!('getData' in entry)) throw new Error('missing image');
+    const bytes = new Uint8Array(await (await entry.getData(new BlobWriter())).arrayBuffer());
+    return page.evaluate(async ({ data, x, y, footer }) => {
+      const bitmap = await createImageBitmap(new Blob([new Uint8Array(data)], { type: 'image/png' }));
+      const canvas = document.createElement('canvas'); canvas.width = bitmap.width; canvas.height = bitmap.height;
+      const ctx = canvas.getContext('2d')!; ctx.drawImage(bitmap, 0, 0);
+      return [...ctx.getImageData(Math.floor(bitmap.width * x), Math.floor((bitmap.height - footer) * y), 1, 1).data];
+    }, { data: [...bytes], x, y, footer });
+  };
+  expect((await sample('02_standard_map.png')).slice(0, 3)).not.toEqual([255, 255, 255]);
+  expect((await sample('01_ortho_composite.png', .5, .99)).slice(0, 3)).toEqual([255, 255, 255]);
+  expect((await sample('photo_001_01_reference.png', .5, .5, 58))[3]).toBeGreaterThan(0);
+  expect((await sample('photo_001_02_after.png', .5, .5, 58))[3]).toBeGreaterThan(0);
+  expect((await sample('photo_002_01_reference.png', .05, .05, 58))[3]).toBe(0);
+  expect((await sample('photo_002_02_after.png', .05, .05, 58))[3]).toBe(0);
+  const sourceEntry = entries.find((item) => item.filename === 'sources.txt')!;
+  if (!('getData' in sourceEntry)) throw new Error('missing sources');
+  const sourceText = await (await sourceEntry.getData(new BlobWriter())).text();
+  expect(sourceText).toContain('災害前の写真とは限りません');
+  expect(sourceText).toContain('主要道路（試験公開）：未取得');
+  expect(sourceText).toContain('河川・水域（地理院地図Vector）：未取得');
+  expect(sourceText).toContain('洪水浸水想定区域・想定最大規模：未取得');
+  expect(sourceText).toContain('海域部は海上保安庁海洋情報部の資料を使用して作成');
+  expect(sourceText).toContain('解析用色別標高図の配色範囲：9.5〜10.5 m');
+  const getImageBytes = async (name: string) => {
+    const entry = entries.find((item) => item.filename === name)!;
+    if (!('getData' in entry)) throw new Error('missing image');
+    return [...new Uint8Array(await (await entry.getData(new BlobWriter())).arrayBuffer())];
+  };
+  const hazardVisible = await page.evaluate(async ({ normal, hazard }) => {
+    const read = async (bytes: number[]) => {
+      const bitmap = await createImageBitmap(new Blob([new Uint8Array(bytes)], { type: 'image/png' }));
+      const canvas = document.createElement('canvas'); canvas.width = bitmap.width; canvas.height = bitmap.height;
+      const context = canvas.getContext('2d')!; context.drawImage(bitmap, 0, 0);
+      return context.getImageData(0, 0, canvas.width, canvas.height);
+    };
+    const a = await read(normal), b = await read(hazard);
+    for (let y = 0; y < a.height * .7; y += 3) for (let x = 0; x < a.width; x += 3) {
+      const i = (y * a.width + x) * 4;
+      if (Math.abs(a.data[i]! - b.data[i]!) + Math.abs(a.data[i + 1]! - b.data[i + 1]!) + Math.abs(a.data[i + 2]! - b.data[i + 2]!) > 30) return true;
+    }
+    return false;
+  }, { normal: await getImageBytes('02_standard_map.png'), hazard: await getImageBytes('05_flood_hazard_l2.png') });
+  expect(hazardVisible).toBe(true);
+  for (const name of ['08_relief.png', '09_relief_custom.png']) {
+    const legendVisible = await page.evaluate(async ({ normal, relief }) => {
+      const read = async (bytes: number[]) => {
+        const bitmap = await createImageBitmap(new Blob([new Uint8Array(bytes)], { type: 'image/png' }));
+        const canvas = document.createElement('canvas'); canvas.width = bitmap.width; canvas.height = bitmap.height;
+        const context = canvas.getContext('2d')!; context.drawImage(bitmap, 0, 0);
+        return context.getImageData(0, 0, canvas.width, canvas.height);
+      };
+      const a = await read(normal), b = await read(relief);
+      let different = 0;
+      for (let y = Math.floor(a.height * .08); y < a.height * .45; y += 2)
+        for (let x = Math.floor(a.width * .02); x < a.width * .27; x += 2) {
+          const i = (y * a.width + x) * 4;
+          if (Math.abs(a.data[i]! - b.data[i]!) + Math.abs(a.data[i + 1]! - b.data[i + 1]!) + Math.abs(a.data[i + 2]! - b.data[i + 2]!) > 60) different++;
+        }
+      return different;
+    }, { normal: await getImageBytes('02_standard_map.png'), relief: await getImageBytes(name) });
+    expect(legendVisible).toBeGreaterThan(10);
+  }
+  await expect(page.getByText(/取得に失敗したため、この画像から除外/)).toHaveCount(0);
+  expect(outgoing.every((request) => request.method === 'GET' && request.body === null)).toBe(true);
+  expect(outgoing.every((request) => !request.url.includes('合成写真'))).toBe(true);
+  await reader.close();
+});
+
+test('画像書き出しの重畳濃度がプレビューへ反映され、写真を右クリックで整理できる', async ({ page }) => {
+  let hazardRequests = 0;
+  await page.route('**/01_flood_l2_shinsuishin_data/**', (route) => {
+    hazardRequests++;
+    return route.fulfill({ status: 200, contentType: 'image/png', headers: { 'access-control-allow-origin': '*' }, body: png(256, 256) });
+  });
+  const project = fixture(3);
+  project.panes[0].baseLayerId = 'gsi-pale';
+  project.panes[0].overlayLayerIds = ['hazard-flood-l2'];
+  await openFixture(page, project);
+  await page.getByRole('button', { name: 'オルソ画像エクスポート' }).click();
+  await expect.poll(() => hazardRequests).toBeGreaterThan(0);
+  const slider = page.locator('.pm-export-settings input[type="range"]').first();
+  const mapImage = page.locator('.pm-export-map');
+  await slider.fill('0');
+  const hidden = await mapImage.screenshot();
+  await slider.fill('1');
+  await expect(page.locator('.pm-export-opacity-note')).toContainText('濃さ 100%');
+  await expect.poll(async () => Buffer.compare(await mapImage.screenshot(), hidden)).not.toBe(0);
+  const box = (await page.locator('.pm-export-preview').boundingBox())!;
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2, { button: 'right' });
+  const menu = page.getByRole('menu', { name: '合成写真 3のレイヤー操作' });
+  await expect(menu).toBeVisible();
+  await expect(menu.getByRole('menuitem', { name: '前面に移動', exact: true })).toBeVisible();
+  await expect(menu.getByRole('menuitem', { name: '背面に移動', exact: true })).toBeVisible();
+  await expect(menu.getByRole('menuitem', { name: '最前面に移動', exact: true })).toBeVisible();
+  await menu.getByRole('menuitem', { name: '最背面に移動', exact: true }).click();
+  await expect(page.locator('.pm-export-photo-row').last()).toContainText('合成写真 3');
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2, { button: 'right' });
+  const nextMenu = page.getByRole('menu', { name: '合成写真 2のレイヤー操作' });
+  await expect(nextMenu).toBeVisible();
+  await nextMenu.getByRole('menuitem', { name: '非表示にする' }).click();
+  await expect(page.locator('.pm-export-photo-row').filter({ hasText: '合成写真 2' }).locator('input[type="checkbox"]')).not.toBeChecked();
+});
+
+test('選択した河川中心線GeoJSONを近接写真へ逆投影する', async ({ page }) => {
+  let requests = 0;
+  await page.route('**/experimental_rvrcl/**', (route) => {
+    requests++;
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/geo+json',
+      headers: { 'access-control-allow-origin': '*' },
+      body: JSON.stringify({
+        type: 'FeatureCollection',
+        features: [{
+          type: 'Feature',
+          properties: { class: 'RvrCL', ftCode: '5311' },
+          geometry: {
+            type: 'LineString',
+            coordinates: [[139.898, 35.9], [139.902, 35.9]],
+          },
+        }],
+      }),
+    });
+  });
+  const project = fixture();
+  project.inverse.baseLayerId = null;
+  project.inverse.overlayIds = [];
+  await openFixture(page, project);
+  await page.evaluate(() => {
+    const local = window as typeof window & { __riverOverlays?: Blob[] };
+    local.__riverOverlays = [];
+    const create = URL.createObjectURL.bind(URL);
+    URL.createObjectURL = (blob) => {
+      if (blob.type === 'image/png') local.__riverOverlays!.push(blob);
+      return create(blob);
+    };
+  });
+  await page.getByRole('button', { name: '写真のレイヤー' }).click();
+  await page
+    .getByRole('dialog', { name: '写真のレイヤー設定' })
+    .getByLabel('河川中心線（地図情報・試験公開）')
+    .check();
+  await page.waitForFunction(() =>
+    Boolean((window as typeof window & { __riverOverlays?: Blob[] }).__riverOverlays?.length),
+  );
+  const opaque = await page.evaluate(async () => {
+    const blob = (window as typeof window & { __riverOverlays?: Blob[] }).__riverOverlays![0]!;
+    const bitmap = await createImageBitmap(blob);
+    const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+    const context = canvas.getContext('2d')!;
+    context.drawImage(bitmap, 0, 0);
+    bitmap.close();
+    const data = context.getImageData(0, 0, canvas.width, canvas.height).data;
+    let count = 0;
+    for (let i = 3; i < data.length; i += 4) if (data[i]! > 100) count++;
+    return count;
+  });
+  expect(requests).toBeGreaterThan(0);
+  expect(opaque).toBeGreaterThan(100);
 });
 
 test('写真の一括表示、対応点の単独表示、写真の切替と地図からの選択', async ({ page }) => {
@@ -526,9 +810,8 @@ test('ZIP往復・変換画像・逆投影・機密データの外部送信な�
     mimeType: 'application/zip',
     buffer,
   });
-  await expect(
-    other.getByText('ZIPを復元しました。続けて編集できます。'),
-  ).toBeVisible();
+  await expect(other.locator('.pm-photo-card')).toHaveCount(1);
+  await expect(other.getByRole('textbox', { name: 'プロジェクト名' })).toHaveValue(fixture().name);
   await other.getByRole('button', { name: '地図Aの作図', exact: true }).click();
   await expect(
     other.getByRole('button', { name: /写真で判読した範囲/ }),

@@ -1,6 +1,7 @@
 import type View from 'ol/View';
 import { toLonLat } from 'ol/proj';
 import type { ElevationColorRange } from '../../domain/layers';
+import type { Coordinate } from 'ol/coordinate';
 import { demPriority, fetchElevationFromDem } from './dem';
 
 const SAMPLE_GRID_SIZE = 4;
@@ -19,6 +20,27 @@ function roundedRange(low: number, high: number): ElevationColorRange {
   return maximum > minimum ? { minimum, maximum } : { minimum, maximum: minimum + step };
 }
 
+export async function estimateElevationRangeAt(
+  coordinates: readonly Coordinate[],
+  signal: AbortSignal,
+): Promise<ElevationColorRange | null> {
+  const dem10b = demPriority.find((dem) => dem.id === 'dem10b');
+  if (!dem10b) return null;
+  const values = (await Promise.all(coordinates.map((coordinate) => {
+    const [longitude, latitude] = toLonLat(coordinate);
+    return fetchElevationFromDem(dem10b, longitude!, latitude!, signal)
+      .then((result) => result?.elevation ?? null)
+      .catch((error: unknown) => {
+        if (error instanceof DOMException && error.name === 'AbortError') throw error;
+        return null;
+      });
+  })))
+    .filter((value): value is number => value !== null && Number.isFinite(value) && value >= -500 && value <= 9_000)
+    .sort((left, right) => left - right);
+  if (values.length < 4) return null;
+  return roundedRange(percentile(values, 0.06), percentile(values, 0.94));
+}
+
 /**
  * DEM10Bの16地点だけを、手動操作時またはmoveend後の自動設定時に標本抽出する。
  */
@@ -31,28 +53,14 @@ export async function estimateVisibleElevationRange(
     Math.min(viewportSize[0], 1_200),
     Math.min(viewportSize[1], 800),
   ]);
-  const dem10b = demPriority.find((dem) => dem.id === 'dem10b');
-  if (!dem10b) return null;
   const [minimumX, minimumY, maximumX, maximumY] = extent as [number, number, number, number];
-  const requests: Promise<number | null>[] = [];
+  const coordinates: Coordinate[] = [];
   for (let row = 0; row < SAMPLE_GRID_SIZE; row += 1) {
     for (let column = 0; column < SAMPLE_GRID_SIZE; column += 1) {
       const x = minimumX + (maximumX - minimumX) * ((column + 0.5) / SAMPLE_GRID_SIZE);
       const y = minimumY + (maximumY - minimumY) * ((row + 0.5) / SAMPLE_GRID_SIZE);
-      const [longitude, latitude] = toLonLat([x, y]);
-      requests.push(
-        fetchElevationFromDem(dem10b, longitude!, latitude!, signal)
-          .then((result) => result?.elevation ?? null)
-          .catch((error: unknown) => {
-            if (error instanceof DOMException && error.name === 'AbortError') throw error;
-            return null;
-          }),
-      );
+      coordinates.push([x, y]);
     }
   }
-  const values = (await Promise.all(requests))
-    .filter((value): value is number => value !== null && Number.isFinite(value))
-    .sort((left, right) => left - right);
-  if (values.length < 4) return null;
-  return roundedRange(percentile(values, 0.06), percentile(values, 0.94));
+  return estimateElevationRangeAt(coordinates, signal);
 }

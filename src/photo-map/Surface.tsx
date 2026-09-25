@@ -18,6 +18,8 @@ import Modify from 'ol/interaction/Modify.js';
 import { altKeyOnly, singleClick } from 'ol/events/condition.js';
 import { Circle, Fill, Stroke, Style, Text } from 'ol/style.js';
 import { defaults as controls } from 'ol/control/defaults.js';
+import ScaleLine from 'ol/control/ScaleLine.js';
+import { mapLayerOpacity } from './layerOpacity';
 import GeoJSON from 'ol/format/GeoJSON.js';
 import { createMapLayer } from '../services/mapLayers';
 import { layerById } from '../config/layers';
@@ -55,6 +57,7 @@ interface Props {
   onAction: (action: SurfaceAction) => void;
   onSelectPhoto: (id: string) => void;
   onSoloPhoto: (id: string) => void;
+  onReorderPhoto: (id: string, edge: 'front' | 'back') => void;
   onError: (message: string) => void;
   onViewChange: (view: Project['view']) => void;
   onReady: (map: OlMap | null) => void;
@@ -205,6 +208,7 @@ export function Surface(props: Props) {
         attributionOptions: { collapsible: true },
       }),
     });
+    if (!isPhoto) map.addControl(new ScaleLine({ units: 'metric', bar: true, steps: 2, minWidth: 95 }));
     const rt: Runtime = {
       map,
       basemaps,
@@ -276,7 +280,7 @@ export function Surface(props: Props) {
       setContextPhoto({
         photoId: photo.id,
         x: Math.min(pixel[0] ?? 0, Math.max(0, viewport.clientWidth - 230)),
-        y: Math.min((pixel[1] ?? 0) + target.offsetTop, Math.max(0, target.offsetTop + target.clientHeight - 110)),
+        y: Math.min((pixel[1] ?? 0) + target.offsetTop, Math.max(0, target.offsetTop + target.clientHeight - 190)),
       });
     };
     viewport.addEventListener('mouseleave', leave);
@@ -400,7 +404,7 @@ export function Surface(props: Props) {
     for (const definition of definitions) {
       const layer = createMapLayer(
         definition,
-        paneConfig.opacityByLayerId[definition.id] ?? definition.defaultOpacity,
+        mapLayerOpacity(definition, paneConfig),
         paneConfig.elevationColorRange,
       );
       layer.setZIndex(definition.layerRole === 'base' ? 0 : 20);
@@ -694,7 +698,7 @@ export function Surface(props: Props) {
     {kind === 'map' && hoveredPhoto && !contextPhoto && props.mode === 'move' && (
       <div className="pm-ortho-hover" role="tooltip" style={{ left: hover!.x, top: hover!.y }}>
         <strong>{hoveredPhoto.name}</strong>
-        <small>クリックで写真を表示 · 右クリックで単独表示</small>
+        <small>クリックで写真を表示 · 右クリックで表示順を変更</small>
       </div>
     )}
     {kind === 'map' && menuPhoto && props.mode === 'move' && (
@@ -709,6 +713,14 @@ export function Surface(props: Props) {
           props.onSelectPhoto(menuPhoto.id);
           setContextPhoto(null);
         }}>この写真以外を非表示</button>
+        <button role="menuitem" onClick={() => {
+          props.onReorderPhoto(menuPhoto.id, 'front');
+          setContextPhoto(null);
+        }}>最前面に移動</button>
+        <button role="menuitem" onClick={() => {
+          props.onReorderPhoto(menuPhoto.id, 'back');
+          setContextPhoto(null);
+        }}>最背面に移動</button>
       </div>
     )}
   </>);

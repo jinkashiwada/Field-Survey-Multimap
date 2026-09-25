@@ -1,6 +1,6 @@
 import OlMap from 'ol/Map.js';
 import View from 'ol/View.js';
-import { createMapLayer, getSharedLayerSource } from '../services/mapLayers';
+import { createMapLayer, getSharedLayerSource, getSharedRiverGuideSource } from '../services/mapLayers';
 import { layerById } from '../config/layers';
 import { multiply } from './homography';
 import { rasterGrid, warp } from './warp';
@@ -12,8 +12,9 @@ export async function inverseOverlay(
   project: Project,
   signal: AbortSignal,
   onWarning: (message: string) => void,
+  outputEdge = 2048,
 ): Promise<Blob> {
-  const grid = rasterGrid(photo, 1536);
+  const grid = rasterGrid(photo, Math.max(1536, outputEdge));
   const ids = [
     ...(project.inverse.baseLayerId ? [project.inverse.baseLayerId] : []),
     ...project.inverse.overlayIds,
@@ -21,9 +22,13 @@ export async function inverseOverlay(
   const container = document.createElement('div');
   container.style.cssText = `position:fixed;left:-10000px;top:0;width:${grid.width}px;height:${grid.height}px;pointer-events:none`;
   document.body.append(container);
-  const layers = ids.map((id) =>
-    createMapLayer(layerById.get(id)!, 1, { minimum: 0, maximum: 20 }),
-  );
+  const layers = ids.map((id) => {
+    const definition = layerById.get(id)!;
+    const layer = createMapLayer(definition, 1, { minimum: 0, maximum: 20 });
+    // Export and close-up photos may need to overzoom the last available tile.
+    layer.setMaxZoom(24);
+    return layer;
+  });
   const map = new OlMap({
     target: container,
     pixelRatio: 1,
@@ -42,7 +47,8 @@ export async function inverseOverlay(
   map.setSize([grid.width, grid.height]);
   const failed = new Set<string>();
   const subscriptions = ids.map((id) => {
-    const source = getSharedLayerSource(layerById.get(id)!, {
+    const definition = layerById.get(id)!;
+    const source = getSharedLayerSource(definition, {
       minimum: 0,
       maximum: 20,
     });
@@ -54,8 +60,11 @@ export async function inverseOverlay(
         );
       }
     };
-    source.on('tileloaderror', error);
-    return () => source.un('tileloaderror', error);
+    const sources = definition.vectorKind === 'river'
+      ? [source, getSharedRiverGuideSource(definition)]
+      : [source];
+    sources.forEach((item) => item.on('tileloaderror', error));
+    return () => sources.forEach((item) => item.un('tileloaderror', error));
   });
   try {
     await new Promise<void>((resolve, reject) => {
@@ -111,9 +120,9 @@ export async function inverseOverlay(
           onWarning('読取りが制限された地図レイヤーを逆投影から除外しました。');
         }
       });
-    const scale = Math.min(1, 2048 / Math.max(photo.width, photo.height)),
-      width = Math.max(1, Math.round(photo.width * scale)),
-      height = Math.max(1, Math.round(photo.height * scale));
+    const scale = Math.min(1, outputEdge / Math.max(photo.width, photo.height), Math.sqrt(32_000_000 / (photo.width * photo.height))),
+      width = Math.max(1, Math.floor(photo.width * scale)),
+      height = Math.max(1, Math.floor(photo.height * scale));
     const pixelToPhoto: Matrix3 = [
       photo.width / width,
       0,
@@ -161,6 +170,16 @@ export async function inverseOverlay(
     mc.clip();
     mc.drawImage(bitmap, 0, 0);
     bitmap.close();
+    mc.globalCompositeOperation = 'destination-out';
+    for (const ring of photo.masks) {
+      if (ring.length < 3) continue;
+      mc.beginPath();
+      ring.forEach(([x, y], index) => index === 0
+        ? mc.moveTo((x + 0.5) * sx, (y + 0.5) * sy)
+        : mc.lineTo((x + 0.5) * sx, (y + 0.5) * sy));
+      mc.closePath();
+      mc.fill();
+    }
     return masked.convertToBlob({ type: 'image/png' });
   } finally {
     subscriptions.forEach((remove) => remove());

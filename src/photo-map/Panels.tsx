@@ -496,26 +496,6 @@ export function LayerPanel({
       </label>
       {target === 'photo' && (
         <>
-          <label className="pm-range">
-            逆投影の透過度 {Math.round((1 - project.inverse.opacity) * 100)}%
-            <input
-              aria-label="逆投影の透過度"
-              type="range"
-              min="0"
-              max="1"
-              step="0.01"
-              value={1 - project.inverse.opacity}
-              onChange={(e) =>
-                onChange({
-                  ...project,
-                  inverse: {
-                    ...project.inverse,
-                    opacity: 1 - Number(e.target.value),
-                  },
-                })
-              }
-            />
-          </label>
           <label className="pm-check">
             <input
               type="checkbox"
@@ -564,27 +544,6 @@ export function LayerPanel({
             />
             {layer.titleJa}
           </label>
-          {selected.includes(layer.id) && target !== 'photo' && (
-            <input
-              aria-label={`${layer.titleJa}の透過度`}
-              type="range"
-              min="0"
-              max="1"
-              step="0.01"
-              value={
-                1 - (pane.opacityByLayerId[layer.id] ?? layer.defaultOpacity)
-              }
-              onChange={(e) =>
-                update({
-                  ...pane,
-                  opacityByLayerId: {
-                    ...pane.opacityByLayerId,
-                    [layer.id]: 1 - Number(e.target.value),
-                  },
-                })
-              }
-            />
-          )}
           <a href={layer.legendUrl} target="_blank" rel="noreferrer">
             出典・凡例 ↗
           </a>
@@ -646,7 +605,7 @@ export function LayerPanel({
         ))}
       </details>
       <p className="pm-muted">
-        河川の破線は一般化した位置追跡ガイドです。GCPには航空写真などで特定できる地点を使ってください。
+        「河川・水域」の破線は一般化した位置追跡ガイドです。中心線を確認したい場合は「河川中心線（地図情報・試験公開）」を選択してください。試験公開データのため、GCPには航空写真などで特定できる地点を使ってください。
       </p>
     </>
   );
