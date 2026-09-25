@@ -21,6 +21,7 @@ import { decodePhoto } from './media';
 import { inverseOverlay } from './inverse';
 import { warp } from './warp';
 import type { Matrix3, Photo, Point, Project } from './model';
+import { TOOL_CREDIT_LINE, TOOL_URL } from './usageCredit';
 
 export interface ExportFrame {
   center: Point;
@@ -258,7 +259,7 @@ export function drawAnnotations(canvas: HTMLCanvasElement, frame: ExportFrame, p
   }
 }
 
-export function drawMapChrome(canvas: HTMLCanvasElement, frame: ExportFrame, variant: ExportVariant, photoSources: string[], gisCount = 0): void {
+export function drawMapChrome(canvas: HTMLCanvasElement, frame: ExportFrame, variant: ExportVariant, photoSources: string[], gisCount = 0, showToolCredit = true): void {
   const ids = [variant.baseId, ...variant.overlays];
   const attributions = [...new Set(ids.map((id) => layerById.get(id)?.attribution).filter((value) => !!value))];
   const ctx = canvas.getContext('2d')!;
@@ -283,14 +284,17 @@ export function drawMapChrome(canvas: HTMLCanvasElement, frame: ExportFrame, var
   ctx.fillStyle = '#102a36'; ctx.font = `bold ${13 * u}px sans-serif`; ctx.textAlign = 'center';
   ctx.fillText('N', nx, ny - 19 * u); ctx.textAlign = 'start';
   ctx.font = `${12 * u}px sans-serif`;
-  const credit = 'powered by Tokyo University of Science';
-  const creditWidth = ctx.measureText(credit).width + 20 * u;
+  const creditWidth = showToolCredit ? Math.max(ctx.measureText(TOOL_CREDIT_LINE).width, ctx.measureText(TOOL_URL).width) + 20 * u : 0;
   ctx.fillText(fittedText(ctx, `出典：${attributions.join(' / ')}${photoSources.length ? ` / 写真 ${photoSources.length}枚` : ''}${gisCount ? ` / 持込みGIS ${gisCount}件` : ''}`, canvas.width - 24 * u - creditWidth), 12 * u, canvas.height - 45 * u);
   if (ids.includes('gsi-relief'))
-    ctx.fillText(fittedText(ctx, '海域部は海上保安庁海洋情報部の資料を使用して作成', canvas.width - 24 * u), 12 * u, canvas.height - 27 * u);
+    ctx.fillText(fittedText(ctx, '海域部は海上保安庁海洋情報部の資料を使用して作成', canvas.width - 24 * u - creditWidth), 12 * u, canvas.height - 27 * u);
   ctx.fillText(fittedText(ctx, '簡易オルソ化・回転・重畳等の加工あり / 詳細：sources.txt', canvas.width - 24 * u), 12 * u, canvas.height - 8 * u);
-  ctx.textAlign = 'right'; ctx.font = `bold ${12 * u}px sans-serif`;
-  ctx.fillText(credit, canvas.width - 12 * u, canvas.height - 45 * u);
+  if (showToolCredit) {
+    ctx.textAlign = 'right'; ctx.font = `bold ${12 * u}px sans-serif`;
+    ctx.fillText(TOOL_CREDIT_LINE, canvas.width - 12 * u, canvas.height - 45 * u);
+    ctx.font = `${12 * u}px sans-serif`;
+    ctx.fillText(TOOL_URL, canvas.width - 12 * u, canvas.height - 27 * u);
+  }
   ctx.textAlign = 'start';
 }
 
@@ -342,8 +346,8 @@ export async function drawElevationLegend(canvas: HTMLCanvasElement, variant: Ex
   }
 }
 
-export async function decorateMap(canvas: HTMLCanvasElement, frame: ExportFrame, variant: ExportVariant, photoSources: string[], gisCount = 0): Promise<HTMLCanvasElement> {
-  drawMapChrome(canvas, frame, variant, photoSources, gisCount);
+export async function decorateMap(canvas: HTMLCanvasElement, frame: ExportFrame, variant: ExportVariant, photoSources: string[], gisCount = 0, showToolCredit = true): Promise<HTMLCanvasElement> {
+  drawMapChrome(canvas, frame, variant, photoSources, gisCount, showToolCredit);
   await drawElevationLegend(canvas, variant);
   return canvas;
 }
@@ -367,7 +371,7 @@ export async function obliquePair(photo: Photo, project: Project, assets: Map<st
   return [reference, after];
 }
 
-export async function decorateOblique(blob: Blob, note: string): Promise<Blob> {
+export async function decorateOblique(blob: Blob, note: string, showToolCredit = true): Promise<Blob> {
   const bitmap = await createImageBitmap(blob);
   const canvas = document.createElement('canvas');
   const footer = Math.max(58, Math.round(bitmap.width * .025));
@@ -378,8 +382,21 @@ export async function decorateOblique(blob: Blob, note: string): Promise<Blob> {
   ctx.fillStyle = '#fff'; ctx.fillRect(0, imageHeight, canvas.width, footer);
   ctx.fillStyle = '#17333b'; ctx.font = `${Math.max(11, Math.round(canvas.width / 280))}px sans-serif`;
   ctx.fillText(fittedText(ctx, note, canvas.width - 20), 10, imageHeight + Math.max(18, footer * .35));
-  ctx.textAlign = 'center'; ctx.font = `bold ${Math.max(12, Math.round(canvas.width / 240))}px sans-serif`;
-  ctx.fillText('powered by Tokyo University of Science', canvas.width / 2, canvas.height - 10);
+  if (showToolCredit) {
+    const fitCreditFont = (value: string, preferred: number, bold: boolean) => {
+      let size = preferred;
+      ctx.font = `${bold ? 'bold ' : ''}${size}px sans-serif`;
+      while (ctx.measureText(value).width > canvas.width - 20 && size > 1) {
+        size -= .5;
+        ctx.font = `${bold ? 'bold ' : ''}${size}px sans-serif`;
+      }
+    };
+    ctx.textAlign = 'center';
+    fitCreditFont(TOOL_CREDIT_LINE, Math.max(12, Math.round(canvas.width / 240)), true);
+    ctx.fillText(TOOL_CREDIT_LINE, canvas.width / 2, canvas.height - Math.max(27, footer * .42));
+    fitCreditFont(TOOL_URL, Math.max(11, Math.round(canvas.width / 280)), false);
+    ctx.fillText(TOOL_URL, canvas.width / 2, canvas.height - 8);
+  }
   return canvasBlob(canvas);
 }
 

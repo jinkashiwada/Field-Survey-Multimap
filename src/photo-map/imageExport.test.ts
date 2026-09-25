@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import type OlMap from 'ol/Map.js';
 import { fromLonLat } from 'ol/proj.js';
-import { frameFromSelection, northAngle, scaleBar } from './imageExport';
+import { drawMapChrome, frameFromSelection, northAngle, scaleBar } from './imageExport';
 import { projectPoint } from './homography';
 import { emptyProject } from './model';
 import { validateProject } from './validation';
+import { TOOL_CREDIT_LINE, TOOL_URL } from './usageCredit';
 
 describe('comparison image geometry', () => {
   it('keeps a rotated crop in a single affine frame for every export', () => {
@@ -36,6 +37,32 @@ describe('comparison image geometry', () => {
     expect(northAngle({ ...base, pixelToWorld: [1, 0, -99.5, 0, -1, 99.5, 0, 0, 1] })).toBeCloseTo(0);
     expect(northAngle({ ...base, pixelToWorld: [0, -1, 99.5, -1, 0, 99.5, 0, 0, 1] })).toBeCloseTo(-Math.PI / 2);
   });
+});
+
+it('shows the two-line optional tool credit without removing map attribution', () => {
+  const drawn: string[] = [];
+  const context = {
+    measureText: (value: string) => ({ width: value.length * 6 }),
+    fillText: (value: string) => drawn.push(value),
+    fillRect: () => {}, strokeRect: () => {}, save: () => {}, restore: () => {},
+    translate: () => {}, rotate: () => {}, beginPath: () => {}, moveTo: () => {},
+    lineTo: () => {}, closePath: () => {}, fill: () => {},
+  };
+  const canvas = { width: 850, height: 650, getContext: () => context } as unknown as HTMLCanvasElement;
+  const frame = { center: fromLonLat([139, 36]) as [number, number], resolution: 5,
+    rotation: 0, width: 850, height: 650,
+    pixelToWorld: [5, 0, 0, 0, -5, 0, 0, 0, 1] as [number, number, number, number, number, number, number, number, number] };
+  const variant = { id: 'map', label: '地図', baseId: 'gsi-std', overlays: [],
+    overlayOpacity: 1, opacityByLayerId: {}, ortho: false };
+  drawMapChrome(canvas, frame, variant, []);
+  expect(drawn).toContain(TOOL_CREDIT_LINE);
+  expect(drawn).toContain(TOOL_URL);
+  expect(drawn.some((value) => value.startsWith('出典：'))).toBe(true);
+  drawn.length = 0;
+  drawMapChrome(canvas, frame, variant, [], 0, false);
+  expect(drawn).not.toContain(TOOL_CREDIT_LINE);
+  expect(drawn).not.toContain(TOOL_URL);
+  expect(drawn.some((value) => value.startsWith('出典：'))).toBe(true);
 });
 
 it('imports v1 projects with full overlay opacity and upgrades their schema', () => {

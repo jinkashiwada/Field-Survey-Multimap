@@ -8,6 +8,7 @@ import { decodePhoto } from './media';
 import { photoWarp, rasterGrid, warp, worldFile } from './warp';
 import type { Assets, Project } from './model';
 import schema from './project.schema.json';
+import { USAGE_NOTICE } from './usageCredit';
 
 export const WEB_MERCATOR_WKT =
   'PROJCS["WGS 84 / Pseudo-Mercator",GEOGCS["WGS 84",DATUM["WGS_1984",SPHEROID["WGS 84",6378137,298.257223563]],PRIMEM["Greenwich",0],UNIT["degree",0.0174532925199433]],PROJECTION["Mercator_1SP"],PARAMETER["central_meridian",0],PARAMETER["scale_factor",1],PARAMETER["false_easting",0],PARAMETER["false_northing",0],UNIT["metre",1],EXTENSION["PROJ4","+proj=merc +a=6378137 +b=6378137 +lat_ts=0 +lon_0=0 +x_0=0 +y_0=0 +k=1 +units=m +nadgrids=@null +wktext +no_defs"],AUTHORITY["EPSG","3857"]]';
@@ -140,6 +141,7 @@ export async function saveArchive(
   try {
     await worker.request({ command: 'begin' });
     await add('schema.json', json(schema));
+    await add('USAGE_AND_CREDITS.txt', new Blob([USAGE_NOTICE], { type: 'text/plain;charset=utf-8' }));
     await add(
       'project.json',
       json({

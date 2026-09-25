@@ -18,6 +18,8 @@ import {
   type ExportVariant, type TileIssue,
 } from './imageExport';
 import type { Photo, Project } from './model';
+import { USAGE_NOTICE } from './usageCredit';
+import { UsageCreditsContent } from './UsageCreditsContent';
 
 type Rect = [number, number, number, number];
 type Handle = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w' | 'move';
@@ -63,6 +65,8 @@ export function ImageExportScreen({ project, pool, sourceView, onClose }: {
   const [photoOrder, setPhotoOrder] = useState(() => project.photos.map((photo) => photo.id));
   const [selectedPresets, setSelectedPresets] = useState<string[]>(initialPresets);
   const [drawings, setDrawings] = useState(false);
+  const [showToolCredit, setShowToolCredit] = useState(true);
+  const [creditsOpen, setCreditsOpen] = useState(false);
   const [longEdge, setLongEdge] = useState(4096);
   const [rect, setRect] = useState<Rect>([.1, .1, .9, .9]);
   const [busy, setBusy] = useState('');
@@ -105,6 +109,12 @@ export function ImageExportScreen({ project, pool, sourceView, onClose }: {
     window.addEventListener('keydown', close);
     return () => window.removeEventListener('keydown', close);
   }, [photoMenu]);
+  useEffect(() => {
+    if (!creditsOpen) return;
+    const close = (event: KeyboardEvent) => { if (event.key === 'Escape') setCreditsOpen(false); };
+    window.addEventListener('keydown', close);
+    return () => window.removeEventListener('keydown', close);
+  }, [creditsOpen]);
 
   useEffect(() => {
     const target = host.current;
@@ -216,7 +226,7 @@ export function ImageExportScreen({ project, pool, sourceView, onClose }: {
           overlayOpacity, opacityByLayerId: project.panes[0].opacityByLayerId, ortho: true,
           elevationRange: previewRange.range,
           elevationRangeEstimated: previewRange.estimated,
-        }, photos.map((photo) => photo.name), project.gis.filter((item) => item.visible).length);
+        }, photos.map((photo) => photo.name), project.gis.filter((item) => item.visible).length, showToolCredit);
         const version = ++legendDraw.current;
         void drawElevationLegend(canvas, {
           id: '01_ortho_composite', label: '', baseId, overlays, overlayOpacity,
@@ -230,7 +240,7 @@ export function ImageExportScreen({ project, pool, sourceView, onClose }: {
     current.getView().on('change', redraw); current.on('moveend', redraw);
     redraw();
     return () => { observer.disconnect(); current.getView().un('change', redraw); current.un('moveend', redraw); };
-  }, [rect, baseId, overlays, overlayOpacity, photos, project, previewRange.range, previewRange.estimated]);
+  }, [rect, baseId, overlays, overlayOpacity, photos, project, previewRange.range, previewRange.estimated, showToolCredit]);
 
   const startCrop = (event: React.PointerEvent<HTMLElement>, handle: Handle) => {
     if (event.button !== 0) return;
@@ -276,6 +286,7 @@ export function ImageExportScreen({ project, pool, sourceView, onClose }: {
         ? { ...variant, elevationRange: estimatedRange ?? project.panes[0].elevationColorRange, elevationRangeEstimated: !!estimatedRange }
         : variant);
       const blob = await saveImageArchive(controller.signal, async (add) => {
+        await add('USAGE_AND_CREDITS.txt', new Blob([USAGE_NOTICE], { type: 'text/plain;charset=utf-8' }));
         for (const [index, variant] of exportVariants.entries()) {
           setBusy(`地図画像 ${index + 1}/${exportVariants.length}：${variant.label}`);
           const canvas = await renderMapVariant(frame, variant.ortho ? { ...variant, overlays: [] } : variant, controller.signal, warn, false, collectTileIssues);
@@ -287,7 +298,7 @@ export function ImageExportScreen({ project, pool, sourceView, onClose }: {
             }
           }
           drawAnnotations(canvas, frame, project, drawings);
-          const decorated = await decorateMap(canvas, frame, variant, variant.ortho ? photos.map((photo) => photo.name) : [], project.gis.filter((dataset) => dataset.visible).length);
+          const decorated = await decorateMap(canvas, frame, variant, variant.ortho ? photos.map((photo) => photo.name) : [], project.gis.filter((dataset) => dataset.visible).length, showToolCredit);
           await add(`${variant.id}.png`, await canvasBlob(decorated));
         }
         for (const [index, photo] of photos.entries()) {
@@ -295,8 +306,8 @@ export function ImageExportScreen({ project, pool, sourceView, onClose }: {
           try {
             const [reference, after] = await obliquePair(photo, project, pool.assets, longEdge, controller.signal, warn);
             const stem = `photo_${String(index + 1).padStart(3, '0')}`;
-            await add(`${stem}_01_reference.png`, await decorateOblique(reference, '出典：国土地理院・全国最新写真 / 写真面へ逆投影・加工。撮影時期未確認'));
-            await add(`${stem}_02_after.png`, await decorateOblique(after, `写真：${photo.source || '出典未入力'} / 向き・切抜き・マスクを適用`));
+            await add(`${stem}_01_reference.png`, await decorateOblique(reference, '出典：国土地理院・全国最新写真 / 写真面へ逆投影・加工。撮影時期未確認', showToolCredit));
+            await add(`${stem}_02_after.png`, await decorateOblique(after, `写真：${photo.source || '出典未入力'} / 向き・切抜き・マスクを適用`, showToolCredit));
           } catch (error) {
             if (controller.signal.aborted) throw error;
             warn(`${photo.name}の斜め画像ペアを作成できませんでした：${error instanceof Error ? error.message : '不明なエラー'}`);
@@ -323,6 +334,7 @@ export function ImageExportScreen({ project, pool, sourceView, onClose }: {
       <button onClick={onClose} disabled={!!busy}>← 作業画面へ戻る</button>
       <h1>オルソ画像エクスポート</h1>
       <span>地図をドラッグ・ズーム、右ドラッグで回転。枠を動かして範囲を指定します。</span>
+      <button onClick={() => setCreditsOpen(true)}>クレジット表示について</button>
       <button className="pm-primary" onClick={() => void runExport()} disabled={!!busy}>比較画像ZIPを書き出す</button>
     </header>
     <div className="pm-export-body">
@@ -333,6 +345,7 @@ export function ImageExportScreen({ project, pool, sourceView, onClose }: {
           {baseLayerDefinitions.map((layer) => <option key={layer.id} value={layer.id}>{layer.titleJa}</option>)}
         </select></label>
         <label className="pm-check"><input type="checkbox" checked={drawings} onChange={(event) => setDrawings(event.target.checked)} />浸水域の作図を画像に重ねる</label>
+        <label className="pm-check"><input type="checkbox" checked={showToolCredit} onChange={(event) => setShowToolCredit(event.target.checked)} />画像内にツールのクレジットを入れる（任意）</label>
         <fieldset><legend>主画像の重畳情報</legend>
           {overlayLayerDefinitions.map((layer) => <label className="pm-check" key={layer.id}><input type="checkbox" checked={overlays.includes(layer.id)} onChange={(event) => setOverlays((current) => event.target.checked ? [...current, layer.id] : current.filter((id) => id !== layer.id))} />{layer.titleJa}</label>)}
         </fieldset>
@@ -418,5 +431,11 @@ export function ImageExportScreen({ project, pool, sourceView, onClose }: {
       </section>
     </div>
     {busy && <div className="pm-export-progress" role="status">{busy}<button onClick={() => job.current?.abort()}>中止</button></div>}
+    {creditsOpen && <div className="pm-modal-backdrop" onClick={(event) => { if (event.target === event.currentTarget) setCreditsOpen(false); }}>
+      <section className="pm-modal" role="dialog" aria-modal="true" aria-label="本ツール利用時のクレジット表示について">
+        <button className="pm-modal-close" aria-label="ダイアログを閉じる" onClick={() => setCreditsOpen(false)}>×</button>
+        <UsageCreditsContent />
+      </section>
+    </div>}
   </main>;
 }

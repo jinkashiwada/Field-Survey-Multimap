@@ -280,7 +280,13 @@ test('同一画角の比較画像と斜め写真ペアを画像専用ZIPに出�
   project.panes[0].overlayLayerIds = ['gsi-vector-major-road', 'gsi-vector-river'];
   project.panes[1].overlayLayerIds = [];
   await openFixture(page, project);
+  await page.getByRole('button', { name: '本ツール利用時のクレジット表示について' }).click();
+  await expect(page.getByRole('dialog', { name: '本ツール利用時のクレジット表示について' })).toContainText('クレジット表記は必須ではありません');
+  await page.getByRole('button', { name: 'ダイアログを閉じる' }).click();
+  await page.setViewportSize({ width: 1536, height: 864 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth && document.documentElement.scrollHeight <= innerHeight)).toBe(true);
   await page.getByRole('button', { name: 'オルソ画像エクスポート' }).click();
+  await expect(page.getByLabel('画像内にツールのクレジットを入れる（任意）')).toBeChecked();
   await expect(page.locator('.pm-export-settings input[type="range"]').first()).toHaveValue('0.2');
   await expect(page.locator('.pm-export-settings input[type="range"]').nth(1)).toHaveValue('1');
   await page.getByLabel('画像の長辺（px）').fill('256');
@@ -289,6 +295,10 @@ test('同一画角の比較画像と斜め写真ペアを画像専用ZIPに出�
   await expect(page.getByRole('heading', { name: 'オルソ画像エクスポート' })).toBeVisible();
   const chrome = page.getByRole('img', { name: '縮尺・北の方位・出典・クレジットの出力プレビュー' });
   await expect(chrome).toBeVisible();
+  const creditedPreview = await chrome.evaluate((node: HTMLCanvasElement) => node.toDataURL());
+  await page.getByLabel('画像内にツールのクレジットを入れる（任意）').uncheck();
+  await expect.poll(() => chrome.evaluate((node: HTMLCanvasElement) => node.toDataURL())).not.toBe(creditedPreview);
+  await page.getByLabel('画像内にツールのクレジットを入れる（任意）').check();
   const beforeNorth = await chrome.evaluate((node: HTMLCanvasElement) => node.toDataURL());
   const preview = (await page.locator('.pm-export-preview').boundingBox())!;
   await page.mouse.move(preview.x + 90, preview.y + 120);
@@ -330,6 +340,7 @@ test('同一画角の比較画像と斜め写真ペアを画像専用ZIPに出�
   expect(names).toContain('photo_001_01_reference.png');
   expect(names).toContain('photo_001_02_after.png');
   expect(names).toContain('sources.txt');
+  expect(names).toContain('USAGE_AND_CREDITS.txt');
   expect(names).not.toContain('project.json');
   expect(names.some((name) => name.startsWith('originals/'))).toBe(false);
   expect(hazardRequests).toBeGreaterThan(1);
@@ -364,6 +375,11 @@ test('同一画角の比較画像と斜め写真ペアを画像専用ZIPに出�
   const sourceEntry = entries.find((item) => item.filename === 'sources.txt')!;
   if (!('getData' in sourceEntry)) throw new Error('missing sources');
   const sourceText = await (await sourceEntry.getData(new BlobWriter())).text();
+  const usageEntry = entries.find((item) => item.filename === 'USAGE_AND_CREDITS.txt')!;
+  if (!('getData' in usageEntry)) throw new Error('missing usage notice');
+  const usageText = await (await usageEntry.getData(new BlobWriter())).text();
+  expect(usageText).toContain('クレジット表記は必須ではありません');
+  expect(usageText).toContain('「浸水域判読支援ツール」（東京理科大学 水理研究室）を使用');
   expect(sourceText).toContain('災害前の写真とは限りません');
   expect(sourceText).toContain('主要道路（試験公開）：未取得');
   expect(sourceText).toContain('河川・水域（地理院地図Vector）：未取得');
@@ -783,6 +799,7 @@ test('ZIP往復・変換画像・逆投影・機密データの外部送信な�
       'rectified/photo-0.png.aux.xml',
       'screenshots/photo.png',
       'drawings.geojson',
+      'USAGE_AND_CREDITS.txt',
     ]),
   );
   const worldEntry = entries.find(

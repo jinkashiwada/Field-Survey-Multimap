@@ -42,6 +42,7 @@ import { PanePopover } from './PanePopover';
 import { DrawingPanel } from './DrawingPanel';
 import { displayedPhotos } from './photoDisplay';
 import { ImageExportScreen } from './ImageExportScreen';
+import { UsageCreditsContent } from './UsageCreditsContent';
 
 type PaneName = 'photo' | 'A' | 'B';
 type Popup = { pane: PaneName; type: 'layers' | 'drawing' };
@@ -98,7 +99,7 @@ export function PhotoMapApp() {
     [busy, setBusy] = useState(''),
     [mapStatus, setMapStatus] = useState('');
   const [dialog, setDialog] = useState<
-    'save' | 'help' | 'new' | 'delete' | null
+    'save' | 'help' | 'credits' | 'new' | 'delete' | null
   >(null);
   const [includeRasters, setIncludeRasters] = useState(true),
     [includeScreenshots, setIncludeScreenshots] = useState(false);
@@ -882,6 +883,9 @@ export function PhotoMapApp() {
           {dirty ? '● 未保存' : '保存済み'}
         </span>
         <div className="pm-header-actions">
+          <button className="pm-credit-header-link" onClick={() => setDialog('credits')}>
+            本ツール利用時のクレジット表示について
+          </button>
           <button disabled={!!busy} onClick={() => setDialog('new')}>
             新規
           </button>
@@ -1262,6 +1266,8 @@ export function PhotoMapApp() {
                 ? 'ZIPの保存設定'
                 : dialog === 'help'
                   ? '使い方とデータの扱い'
+                  : dialog === 'credits'
+                    ? '本ツール利用時のクレジット表示について'
                   : dialog === 'delete'
                     ? '写真の削除'
                     : '新しいプロジェクト'
@@ -1401,6 +1407,7 @@ export function PhotoMapApp() {
                 </p>
               </>
             )}
+            {dialog === 'credits' && <UsageCreditsContent />}
             {dialog === 'new' && (
               <>
                 <h2>新しいプロジェクト</h2>

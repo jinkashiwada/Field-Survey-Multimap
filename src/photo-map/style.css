@@ -214,6 +214,22 @@ pre {
   display: flex;
   gap: 8px;
 }
+.pm-credit-header-link {
+  white-space: nowrap;
+  font-size: 11px;
+  color: #0b6869;
+}
+.pm-credit-example {
+  display: grid;
+  gap: 5px;
+  padding: 11px 13px;
+  background: #f2f7f7;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.pm-credit-example a { color: #066a85; }
 .pm-toolbar {
   display: flex;
   align-items: center;
