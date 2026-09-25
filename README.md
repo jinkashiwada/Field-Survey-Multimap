@@ -4,6 +4,12 @@
 
 公開版：<https://jinkashiwada.github.io/Field-Survey-Multimap/>
 
+## 浸水域判読支援ツール
+
+公開版：[浸水域判読支援ツール](https://jinkashiwada.github.io/Field-Survey-Multimap/photo-map/)
+
+`/photo-map/` に、斜め写真と地図の対応点から簡易オルソ化し、双方へ地理情報・写真を投影する専用ツールを追加しています。写真と地図で浸水域の線・面を編集し、元画像・GCP・行列・作図をZIPで保存・復元できます。写真・編集データは端末内で処理します。操作方法、座標規約、制限は [専用ツールの説明](docs/photo-map.md) を参照してください。
+
 ## 主な機能
 
 - 1画面、同期2画面、PC・広いタブレットでの同期4画面

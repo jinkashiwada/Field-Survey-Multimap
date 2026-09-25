@@ -42,6 +42,14 @@ export function LayoutToolbar({ activeLayout, viewport, onChange, onPreset, onLo
         </button>
       </div>
       <PresetControl onApply={onPreset} />
+      <a
+        className="toolbar-photo-link"
+        href={`${import.meta.env.BASE_URL}photo-map/`}
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        浸水域判読支援
+      </a>
       <button type="button" onClick={onLocate} disabled={locationLoading} aria-label="現在地を取得して表示">
         {locationLoading ? '取得中…' : '現在地'}
       </button>

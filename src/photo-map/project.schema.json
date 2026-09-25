@@ -1,0 +1,528 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "浸水域判読支援プロジェクト v1",
+  "description": "ZIP project.jsonの公開形式。originals/<写真ID>に元ファイルを格納。座標・参照・行列・画像寸法の整合性は追加の意味検証を要する。",
+  "type": "object",
+  "properties": {
+    "format": {
+      "const": "flood-photo-map"
+    },
+    "coordinateConvention": {
+      "type": "object"
+    },
+    "project": {
+      "$ref": "#/$defs/project"
+    }
+  },
+  "required": ["format", "project"],
+  "$defs": {
+    "point": {
+      "type": "array",
+      "items": {
+        "type": "number"
+      },
+      "minItems": 2,
+      "maxItems": 2
+    },
+    "matrix": {
+      "type": "array",
+      "items": {
+        "type": "number"
+      },
+      "minItems": 9,
+      "maxItems": 9,
+      "description": "行優先3×3、同次列ベクトル。hは向き補正済み元画像の画素中心座標からEPSG:3857への写像。"
+    },
+    "gcp": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "maxLength": 4000
+        },
+        "image": {
+          "$ref": "#/$defs/point"
+        },
+        "map": {
+          "$ref": "#/$defs/point"
+        },
+        "role": {
+          "enum": ["fit", "check", "off"]
+        }
+      },
+      "required": ["id", "role"]
+    },
+    "residual": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "maxLength": 4000
+        },
+        "role": {
+          "enum": ["fit", "check"]
+        },
+        "pixels": {
+          "type": "number",
+          "minimum": 0
+        },
+        "metres": {
+          "type": "number",
+          "minimum": 0
+        }
+      },
+      "required": ["id", "role", "pixels", "metres"]
+    },
+    "registration": {
+      "type": "object",
+      "properties": {
+        "h": {
+          "$ref": "#/$defs/matrix"
+        },
+        "inverse": {
+          "$ref": "#/$defs/matrix"
+        },
+        "gcps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/gcp"
+          },
+          "maxItems": 1000
+        },
+        "residuals": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/residual"
+          },
+          "maxItems": 1000
+        },
+        "rmsPixels": {
+          "type": "number",
+          "minimum": 0
+        },
+        "rmsMetres": {
+          "type": "number",
+          "minimum": 0
+        },
+        "fittedAt": {
+          "type": "string",
+          "maxLength": 4000
+        }
+      },
+      "required": [
+        "h",
+        "inverse",
+        "gcps",
+        "residuals",
+        "rmsPixels",
+        "rmsMetres",
+        "fittedAt"
+      ]
+    },
+    "photo": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_-]{1,80}$"
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "filename": {
+          "type": "string",
+          "maxLength": 250
+        },
+        "mime": {
+          "enum": ["image/jpeg", "image/png", "image/webp"]
+        },
+        "width": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "height": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "capturedAt": {
+          "type": "string",
+          "maxLength": 4000
+        },
+        "source": {
+          "type": "string",
+          "maxLength": 4000
+        },
+        "memo": {
+          "type": "string",
+          "maxLength": 4000
+        },
+        "gcps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/gcp"
+          },
+          "maxItems": 1000
+        },
+        "registration": {
+          "$ref": "#/$defs/registration"
+        },
+        "crop": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 4,
+          "maxItems": 4
+        },
+        "masks": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/point"
+            },
+            "maxItems": 10000
+          },
+          "maxItems": 1000
+        },
+        "visible": {
+          "type": "array",
+          "items": {
+            "type": "boolean"
+          },
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "opacity": {
+          "type": "array",
+          "items": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "minItems": 2,
+          "maxItems": 2
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "filename",
+        "mime",
+        "width",
+        "height",
+        "capturedAt",
+        "source",
+        "memo",
+        "gcps",
+        "crop",
+        "masks",
+        "visible",
+        "opacity"
+      ]
+    },
+    "drawing": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "maxLength": 4000
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 4000
+        },
+        "type": {
+          "enum": ["LineString", "Polygon"]
+        },
+        "points": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/point"
+          },
+          "maxItems": 100000
+        },
+        "anchor": {
+          "enum": ["photo", "map"]
+        },
+        "photoId": {
+          "type": "string",
+          "maxLength": 4000
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 4000
+          }
+        },
+        "classification": {
+          "enum": ["interpreted", "estimated"]
+        },
+        "at": {
+          "type": "string",
+          "maxLength": 4000
+        },
+        "memo": {
+          "type": "string",
+          "maxLength": 4000
+        },
+        "visible": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "type",
+        "points",
+        "anchor",
+        "evidence",
+        "classification",
+        "at",
+        "memo",
+        "visible"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "anchor": {
+                "const": "photo"
+              }
+            }
+          },
+          "then": {
+            "required": ["photoId"]
+          }
+        }
+      ]
+    },
+    "pane": {
+      "type": "object",
+      "properties": {
+        "baseLayerId": {
+          "type": "string",
+          "maxLength": 4000
+        },
+        "overlayLayerIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 4000
+          },
+          "maxItems": 30
+        },
+        "opacityByLayerId": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          }
+        },
+        "elevationColorRange": {
+          "type": "object",
+          "properties": {
+            "minimum": {
+              "type": "number"
+            },
+            "maximum": {
+              "type": "number"
+            }
+          },
+          "required": ["minimum", "maximum"]
+        },
+        "autoElevationRange": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "baseLayerId",
+        "overlayLayerIds",
+        "opacityByLayerId",
+        "elevationColorRange",
+        "autoElevationRange"
+      ]
+    },
+    "project": {
+      "type": "object",
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "appVersion": {
+          "type": "string",
+          "maxLength": 4000
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "photos": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/photo"
+          },
+          "maxItems": 100
+        },
+        "drawings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/drawing"
+          },
+          "maxItems": 50000
+        },
+        "gis": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "maxLength": 4000
+              },
+              "name": {
+                "type": "string",
+                "maxLength": 4000
+              },
+              "visible": {
+                "type": "boolean"
+              },
+              "data": {
+                "type": "object",
+                "properties": {
+                  "type": {
+                    "const": "FeatureCollection"
+                  },
+                  "features": {
+                    "type": "array",
+                    "items": {
+                      "type": "object"
+                    },
+                    "maxItems": 50000
+                  }
+                },
+                "required": ["type", "features"]
+              }
+            },
+            "required": ["id", "name", "visible", "data"]
+          },
+          "maxItems": 100
+        },
+        "activePhotoId": {
+          "type": ["string", "null"]
+        },
+        "layout": {
+          "enum": ["register", "compare", "maps"]
+        },
+        "split": {
+          "type": "number",
+          "minimum": 25,
+          "maximum": 75
+        },
+        "view": {
+          "type": "object",
+          "properties": {
+            "center": {
+              "$ref": "#/$defs/point"
+            },
+            "zoom": {
+              "type": "number",
+              "minimum": 2,
+              "maximum": 22
+            },
+            "rotation": {
+              "type": "number"
+            }
+          },
+          "required": ["center", "zoom", "rotation"]
+        },
+        "panes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/pane"
+          },
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "inverse": {
+          "type": "object",
+          "properties": {
+            "baseLayerId": {
+              "type": ["string", "null"]
+            },
+            "overlayIds": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "maxLength": 4000
+              },
+              "maxItems": 30
+            },
+            "opacity": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "gis": {
+              "type": "boolean"
+            },
+            "drawings": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "baseLayerId",
+            "overlayIds",
+            "opacity",
+            "gis",
+            "drawings"
+          ]
+        },
+        "export": {
+          "type": "object",
+          "properties": {
+            "longEdge": {
+              "type": "integer",
+              "minimum": 64,
+              "maximum": 8192
+            },
+            "bounds": {
+              "anyOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "number"
+                  },
+                  "minItems": 4,
+                  "maxItems": 4
+                }
+              ]
+            }
+          },
+          "required": ["longEdge", "bounds"]
+        }
+      },
+      "required": [
+        "schemaVersion",
+        "appVersion",
+        "name",
+        "photos",
+        "drawings",
+        "gis",
+        "activePhotoId",
+        "layout",
+        "split",
+        "view",
+        "panes",
+        "inverse",
+        "export"
+      ]
+    }
+  }
+}

@@ -23,4 +23,9 @@ jobs:
         run: npm ci
       - name: Run checks
         run: npm run check
-
+      - name: Install browser for UI tests
+        run: npx playwright install --with-deps chromium
+      - name: Run browser tests with fixed map data
+        run: npm run test:e2e -- --workers=1
+        env:
+          PAGES_BASE_PATH: /

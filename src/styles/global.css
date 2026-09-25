@@ -21,6 +21,8 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
 .toolbar-group { flex: 0 0 auto; display: flex; gap: 0.35rem; }
 .toolbar button, .notice button { min-width: 44px; min-height: 44px; border: 1px solid #93a7b2; border-radius: 0.45rem; background: #fff; color: #173f5f; font-weight: 700; cursor: pointer; }
 .toolbar button { flex: 0 0 auto; white-space: nowrap; }
+.toolbar-photo-link { flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 0.7rem; border: 1px solid #1d6687; border-radius: 0.45rem; color: #fff; background: #1d6687; font-weight: 700; white-space: nowrap; text-decoration: none; }
+.toolbar-photo-link:hover { background: #14506c; }
 .toolbar button[aria-pressed="true"] { color: #fff; background: #1d6687; border-color: #1d6687; }
 .toolbar button:disabled { cursor: not-allowed; opacity: 0.45; }
 .notice { display: flex; align-items: center; justify-content: space-between; gap: 0.8rem; padding: 0.45rem 0.75rem; color: #523600; background: #fff4cf; border-bottom: 1px solid #e6c96c; }

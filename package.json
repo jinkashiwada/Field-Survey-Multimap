@@ -14,6 +14,8 @@
     "check": "npm run lint && npm run typecheck && npm run test && npm run build"
   },
   "dependencies": {
+    "@zip.js/zip.js": "^2.18.2",
+    "ml-matrix": "^6.15.0",
     "ol": "^10.10.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
@@ -23,6 +25,7 @@
     "@playwright/test": "^1.62.1",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.3",
+    "@types/geojson": "^7946.0.16",
     "@types/node": "^26.4.1",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.5",
