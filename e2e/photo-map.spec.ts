@@ -222,6 +222,45 @@ test.beforeEach(async ({ page }) => {
   await page.goto(PHOTO_PATH);
 });
 
+test('写真の一括表示、対応点の単独表示、写真の切替と地図からの選択', async ({ page }) => {
+  const project = fixture(3);
+  project.photos[1]!.registration = undefined;
+  await openFixture(page, project);
+  await expect(page.locator('.pm-photo-card.is-unregistered')).toHaveCount(1);
+  await expect(page.locator('.pm-photo-card.is-registered')).toHaveCount(2);
+  await page.getByRole('button', { name: '地図Aの写真をすべてオフ' }).click();
+  await expect(page.getByRole('checkbox', { name: /を地図Aに表示/ })).toHaveCount(3);
+  for (const box of await page.getByRole('checkbox', { name: /を地図Aに表示/ }).all())
+    await expect(box).not.toBeChecked();
+  await page.getByRole('button', { name: '地図Aの写真をすべてオン' }).click();
+  for (const box of await page.getByRole('checkbox', { name: /を地図Aに表示/ }).all())
+    await expect(box).toBeChecked();
+  await page.getByRole('slider', { name: '全写真の透過度を一括変更' }).fill('0.42');
+  await expect(page.getByText('全写真の透過度 42%')).toBeVisible();
+
+  await page.getByRole('button', { name: '対応点', exact: true }).click();
+  await expect(page.locator('.pm-surface-A .pm-map-photo-label')).toContainText('合成写真 1');
+  await expect(page.getByRole('slider', { name: '位置合わせ後の写真の透過度' })).toBeVisible();
+  await page.getByRole('slider', { name: '位置合わせ後の写真の透過度' }).fill('0.55');
+  await page.getByRole('button', { name: '写真', exact: true }).click();
+  for (const box of await page.getByRole('checkbox', { name: /を地図Aに表示/ }).all())
+    await expect(box).toBeChecked();
+
+  await page.getByRole('button', { name: '前の写真' }).click();
+  await expect(page.locator('.pm-surface-photo .pm-surface-heading')).toContainText('合成写真 2');
+  await expect(page.locator('.pm-photo-registration-warning')).toContainText('この写真は位置合わせ前');
+  await page.getByRole('button', { name: '前の写真' }).click();
+  await expect(page.locator('.pm-surface-A .pm-map-photo-label')).toContainText('合成写真 3');
+  const box = (await page.locator('.pm-surface-A .pm-map').boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await expect(page.getByRole('tooltip')).toContainText('合成写真 3');
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2, { button: 'right' });
+  await expect(page.getByRole('menu', { name: '合成写真 3の操作' })).toBeVisible();
+  await page.getByRole('menuitem', { name: 'この写真以外を非表示' }).click();
+  await expect(page.getByRole('button', { name: '単独表示を解除' })).toBeVisible();
+  await page.getByRole('button', { name: '単独表示を解除' }).click();
+});
+
 test('公開ルートから別タブで判読ツールを開ける', async ({ page }) => {
   await page.context().route(
     /https:\/\/(cyberjapandata\.gsi\.go\.jp|disaportaldata\.gsi\.go\.jp)\//,

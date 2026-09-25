@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import OlMap from 'ol/Map.js';
 import View from 'ol/View.js';
 import Projection from 'ol/proj/Projection.js';
@@ -26,6 +26,7 @@ import { createPhotoLayer } from './render';
 import { inverseOverlay } from './inverse';
 import { footprint, projectPoint } from './homography';
 import { drawingDisplayPoints } from './geometry';
+import { photoAtCoordinate } from './photoDisplay';
 import type { ImagePool } from './media';
 import type { Mode, Photo, Point, Project } from './model';
 
@@ -43,6 +44,8 @@ interface Props {
   pane: 0 | 1;
   project: Project;
   photo?: Photo;
+  displayPhotos: Photo[];
+  highlightedPhotoId: string | null;
   view: View;
   pool: ImagePool;
   mode: Mode;
@@ -50,6 +53,8 @@ interface Props {
   selectedDrawing: string | null;
   visibleDrawings: Set<string>;
   onAction: (action: SurfaceAction) => void;
+  onSelectPhoto: (id: string) => void;
+  onSoloPhoto: (id: string) => void;
   onError: (message: string) => void;
   onViewChange: (view: Project['view']) => void;
   onReady: (map: OlMap | null) => void;
@@ -60,6 +65,7 @@ interface Runtime {
   drawings: VectorSource<Feature<Geometry>>;
   gcps: VectorSource<Feature<Geometry>>;
   gis: VectorSource<Feature<Geometry>>;
+  highlight: VectorSource<Feature<Geometry>>;
   roi: VectorSource<Feature<Geometry>>;
   image: ImageLayer<ImageStatic>;
   inverse: ImageLayer<ImageStatic>;
@@ -77,6 +83,8 @@ const displayPoint = (point: Point, photo: boolean): Point => [
 ];
 const extentOf = (p: Photo) => [-0.5, -p.height + 0.5, p.width - 0.5, 0.5];
 export function Surface(props: Props) {
+  const [hover, setHover] = useState<{ photoId: string; x: number; y: number } | null>(null);
+  const [contextPhoto, setContextPhoto] = useState<{ photoId: string; x: number; y: number } | null>(null);
   const host = useRef<HTMLDivElement>(null),
     runtime = useRef<Runtime | null>(null),
     latest = useRef(props);
@@ -99,6 +107,7 @@ export function Surface(props: Props) {
     const drawings = new VectorSource<Feature<Geometry>>(),
       gcps = new VectorSource<Feature<Geometry>>(),
       gis = new VectorSource<Feature<Geometry>>(),
+      highlight = new VectorSource<Feature<Geometry>>(),
       roi = new VectorSource<Feature<Geometry>>();
     const basemaps = new LayerGroup({ zIndex: 0 });
     const image = new ImageLayer<ImageStatic>({ zIndex: 0 }),
@@ -129,6 +138,17 @@ export function Surface(props: Props) {
           }),
         });
       },
+    });
+    const highlightLayer = new VectorLayer({
+      source: highlight,
+      zIndex: 35,
+      style: [
+        new Style({
+          fill: new Fill({ color: 'rgba(255, 227, 106, 0.14)' }),
+          stroke: new Stroke({ color: '#17333e', width: 7 }),
+        }),
+        new Style({ stroke: new Stroke({ color: '#ffe36a', width: 3, lineDash: [9, 5] }) }),
+      ],
     });
     const gcpLayer = new VectorLayer({
       source: gcps,
@@ -163,6 +183,7 @@ export function Surface(props: Props) {
       layers: [
         ...(isPhoto ? [image, inverse] : [basemaps, photoLayer.layer]),
         new VectorLayer({ source: gis, zIndex: 25, style: gisStyle }),
+        ...(!isPhoto ? [highlightLayer] : []),
         drawingLayer,
         new VectorLayer({
           source: roi,
@@ -190,6 +211,7 @@ export function Surface(props: Props) {
       drawings,
       gcps,
       gis,
+      highlight,
       roi,
       image,
       inverse,
@@ -226,7 +248,55 @@ export function Surface(props: Props) {
           hitTolerance: 6,
         });
         if (hit) p.onAction({ type: 'select', id: String(hit.getId()) });
+        else if (!isPhoto && p.mode === 'move') {
+          const photo = photoAtCoordinate(p.displayPhotos, pane, event.coordinate as Point);
+          if (photo) {
+            p.onSelectPhoto(photo.id);
+            setHover(null);
+            setContextPhoto(null);
+          }
+        }
       }
+    });
+    const viewport = map.getViewport();
+    const leave = () => setHover(null);
+    const contextMenu = (event: MouseEvent) => {
+      const p = latest.current;
+      if (isPhoto || p.mode !== 'move' ||
+          (event.target instanceof Element && event.target.closest('.ol-control'))) return;
+      const pixel = map.getEventPixel(event);
+      const photo = photoAtCoordinate(
+        p.displayPhotos,
+        pane,
+        map.getCoordinateFromPixel(pixel) as Point,
+      );
+      if (!photo) return;
+      event.preventDefault();
+      setHover(null);
+      setContextPhoto({
+        photoId: photo.id,
+        x: Math.min(pixel[0] ?? 0, Math.max(0, viewport.clientWidth - 230)),
+        y: Math.min((pixel[1] ?? 0) + target.offsetTop, Math.max(0, target.offsetTop + target.clientHeight - 110)),
+      });
+    };
+    viewport.addEventListener('mouseleave', leave);
+    viewport.addEventListener('contextmenu', contextMenu);
+    const closeContext = () => setContextPhoto(null);
+    viewport.addEventListener('pointerdown', closeContext);
+    if (!isPhoto) map.on('pointermove', (event) => {
+      const p = latest.current;
+      if (event.dragging || p.mode !== 'move') {
+        setHover(null);
+        viewport.style.cursor = '';
+        return;
+      }
+      const photo = photoAtCoordinate(p.displayPhotos, pane, event.coordinate as Point);
+      viewport.style.cursor = photo ? 'pointer' : '';
+      setHover(photo ? {
+        photoId: photo.id,
+        x: Math.min((event.pixel[0] ?? 0) + 12, Math.max(0, viewport.clientWidth - 220)),
+        y: Math.min((event.pixel[1] ?? 0) + target.offsetTop + 12, Math.max(0, target.offsetTop + target.clientHeight - 75)),
+      } : null);
     });
     map.on('moveend', () => {
       if (!isPhoto) {
@@ -271,6 +341,9 @@ export function Surface(props: Props) {
     });
     latest.current.onReady(map);
     return () => {
+      viewport.removeEventListener('mouseleave', leave);
+      viewport.removeEventListener('contextmenu', contextMenu);
+      viewport.removeEventListener('pointerdown', closeContext);
       latest.current.onReady(null);
       resize.disconnect();
       photoLayer.dispose();
@@ -335,8 +408,14 @@ export function Surface(props: Props) {
     }
   }, [paneConfig, kind]);
   useEffect(() => {
-    runtime.current?.photoLayer.update(props.project.photos);
-  }, [props.project.photos]);
+    const rt = runtime.current;
+    if (!rt || kind === 'photo') return;
+    rt.photoLayer.update(props.displayPhotos);
+    rt.highlight.clear();
+    const selected = props.displayPhotos.find((p) => p.id === props.highlightedPhotoId);
+    const points = selected && selected.opacity[pane] > 0 && footprint(selected);
+    if (points) rt.highlight.addFeature(new Feature(new Polygon([[...points, points[0]!]])));
+  }, [props.displayPhotos, props.highlightedPhotoId, kind, pane]);
 
   const inverseKey = JSON.stringify([
     props.photo?.id,
@@ -601,7 +680,9 @@ export function Surface(props: Props) {
       window.removeEventListener('keydown', escape);
     };
   }, [props.mode, kind, photoId]);
-  return (
+  const hoveredPhoto = props.displayPhotos.find((photo) => photo.id === hover?.photoId);
+  const menuPhoto = props.displayPhotos.find((photo) => photo.id === contextPhoto?.photoId);
+  return (<>
     <div
       ref={host}
       className="pm-map"
@@ -610,5 +691,25 @@ export function Surface(props: Props) {
         kind === 'photo' ? '写真の編集領域' : `地図${pane === 0 ? 'A' : 'B'}`
       }
     />
-  );
+    {kind === 'map' && hoveredPhoto && !contextPhoto && props.mode === 'move' && (
+      <div className="pm-ortho-hover" role="tooltip" style={{ left: hover!.x, top: hover!.y }}>
+        <strong>{hoveredPhoto.name}</strong>
+        <small>クリックで写真を表示 · 右クリックで単独表示</small>
+      </div>
+    )}
+    {kind === 'map' && menuPhoto && props.mode === 'move' && (
+      <div className="pm-ortho-context" role="menu" aria-label={`${menuPhoto.name}の操作`} style={{ left: contextPhoto!.x, top: contextPhoto!.y }}>
+        <strong>{menuPhoto.name}</strong>
+        <button role="menuitem" onClick={() => {
+          props.onSelectPhoto(menuPhoto.id);
+          setContextPhoto(null);
+        }}>この写真を表示</button>
+        <button role="menuitem" onClick={() => {
+          props.onSoloPhoto(menuPhoto.id);
+          props.onSelectPhoto(menuPhoto.id);
+          setContextPhoto(null);
+        }}>この写真以外を非表示</button>
+      </div>
+    )}
+  </>);
 }

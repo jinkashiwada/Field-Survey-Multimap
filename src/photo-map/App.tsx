@@ -37,9 +37,10 @@ import {
   type Project,
 } from './model';
 import { validateProject } from './validation';
-import { PhotoList } from './PhotoList';
+import { PhotoBatchControls, PhotoList } from './PhotoList';
 import { PanePopover } from './PanePopover';
 import { DrawingPanel } from './DrawingPanel';
+import { displayedPhotos } from './photoDisplay';
 
 type PaneName = 'photo' | 'A' | 'B';
 type Popup = { pane: PaneName; type: 'layers' | 'drawing' };
@@ -82,6 +83,7 @@ export function PhotoMapApp() {
   const [mode, setMode] = useState<Mode>('move'),
     [tab, setTab] = useState<'photos' | 'gcps'>('photos');
   const [toolPane, setToolPane] = useState<PaneName | null>(null);
+  const [soloMapPhotoIds, setSoloMapPhotoIds] = useState<[string | null, string | null]>([null, null]);
   const [popup, setPopup] = useState<Popup | null>(null);
   const [selectedGcp, setSelectedGcp] = useState<string | null>(null),
     [selectedDrawing, setSelectedDrawing] = useState<string | null>(null);
@@ -109,6 +111,16 @@ export function PhotoMapApp() {
   const maps = useRef<Partial<Record<'photo' | 'A' | 'B', OlMap>>>({});
   const workArea = useRef<HTMLDivElement>(null);
   const active = project.photos.find((p) => p.id === project.activePhotoId);
+  const mapPhotos = useMemo(
+    () => ([0, 1] as const).map((pane) => displayedPhotos(
+      project.photos,
+      pane,
+      project.activePhotoId,
+      tab === 'gcps',
+      soloMapPhotoIds[pane],
+    )) as [Photo[], Photo[]],
+    [project.photos, project.activePhotoId, tab, soloMapPhotoIds],
+  );
   const dirty = signature(project) !== savedSignature;
   const change = useCallback(
     (update: (p: Project) => Project, record = true) =>
@@ -255,6 +267,7 @@ export function PhotoMapApp() {
       setMode('move');
       setPopup(null);
       setToolPane(null);
+      setSoloMapPhotoIds([null, null]);
       setTab('photos');
       setMaximized(null);
       setExportEdge(result.project.export.longEdge);
@@ -470,6 +483,7 @@ export function PhotoMapApp() {
     setMode('move');
     setPopup(null);
     setToolPane(null);
+    setSoloMapPhotoIds([null, null]);
     setTab('photos');
     setMaximized(null);
     setFilterPhoto('');
@@ -493,7 +507,40 @@ export function PhotoMapApp() {
       activePhotoId: p.photos.find((v) => v.id !== active.id)?.id ?? null,
     }));
     setSelectedGcp(null);
+    setSoloMapPhotoIds((ids) => ids.map((id) => id === active.id ? null : id) as [string | null, string | null]);
     setDialog(null);
+  };
+  const choosePhoto = (photoId: string) => {
+    const target = project.photos.find((photo) => photo.id === photoId);
+    const polygon = target && footprint(target);
+    if (polygon) {
+      const area = bounds(polygon);
+      const mapElement = document.querySelector<HTMLElement>('.pm-surface-A .pm-map');
+      const size: [number, number] = mapElement
+        ? [mapElement.clientWidth, mapElement.clientHeight]
+        : [800, 700];
+      const visible = view.calculateExtent(size) as [number, number, number, number];
+      const overlap = Math.max(0, Math.min(area[2], visible[2]) - Math.max(area[0], visible[0])) *
+        Math.max(0, Math.min(area[3], visible[3]) - Math.max(area[1], visible[1]));
+      const areaSize = (area[2] - area[0]) * (area[3] - area[1]);
+      const visibleSize = (visible[2] - visible[0]) * (visible[3] - visible[1]);
+      if (overlap / Math.min(areaSize, visibleSize) < 0.25)
+        view.fit(area, { size, padding: [50, 50, 50, 50], maxZoom: 18 });
+    }
+    change((p) => ({
+      ...p,
+      activePhotoId: photoId,
+      layout: p.layout === 'maps' ? 'compare' : p.layout,
+    }), false);
+    setSelectedGcp(null);
+    setMode('move');
+    setToolPane(null);
+    setPopup(null);
+    setMaximized((value) => value === 'photo' ? value : null);
+    setTab('photos');
+  };
+  const setSoloMapPhoto = (pane: 0 | 1, photoId: string | null) => {
+    setSoloMapPhotoIds((ids) => ids.map((id, i) => i === pane ? photoId : id) as [string | null, string | null]);
   };
   const setTool = (tool: Mode, target: PaneName | null = null) => {
     setMode(tool);
@@ -535,6 +582,8 @@ export function PhotoMapApp() {
     const isPhoto = name === 'photo',
       index = name === 'B' ? 1 : 0;
     const localMode = modeFor(name);
+    const frontFirst = [...project.photos].reverse();
+    const photoIndex = frontFirst.findIndex((photo) => photo.id === active?.id);
     const popupId = `pm-popup-${name}-${popup?.type ?? 'layers'}`;
     return (
       <section
@@ -552,6 +601,32 @@ export function PhotoMapApp() {
             </small>
           </span>
           <div>
+            {isPhoto && active && (
+              <div className="pm-photo-navigation" aria-label="写真を切り替える">
+                <button
+                  aria-label="前の写真"
+                  title="写真一覧の上にある写真へ"
+                  disabled={photoIndex <= 0}
+                  onClick={() => choosePhoto(frontFirst[photoIndex - 1]!.id)}
+                >
+                  ‹
+                </button>
+                <span>{photoIndex + 1} / {frontFirst.length}</span>
+                <button
+                  aria-label="次の写真"
+                  title="写真一覧の下にある写真へ"
+                  disabled={photoIndex < 0 || photoIndex >= frontFirst.length - 1}
+                  onClick={() => choosePhoto(frontFirst[photoIndex + 1]!.id)}
+                >
+                  ›
+                </button>
+              </div>
+            )}
+            {!isPhoto && soloMapPhotoIds[index] && tab !== 'gcps' && (
+              <button onClick={() => setSoloMapPhoto(index, null)}>
+                単独表示を解除
+              </button>
+            )}
             {isPhoto && active && (
               <button
                 title="写真全体を表示"
@@ -603,6 +678,8 @@ export function PhotoMapApp() {
           pane={index}
           project={project}
           photo={active}
+          displayPhotos={mapPhotos[index]}
+          highlightedPhotoId={project.activePhotoId}
           view={view}
           pool={pool}
           mode={localMode}
@@ -610,6 +687,8 @@ export function PhotoMapApp() {
           selectedDrawing={selectedDrawing}
           visibleDrawings={visibleDrawings}
           onAction={(action) => onSurfaceAction(name, action)}
+          onSelectPhoto={choosePhoto}
+          onSoloPhoto={(id) => setSoloMapPhoto(index, id)}
           onError={report}
           onViewChange={(v) =>
             setMapStatus(
@@ -621,6 +700,38 @@ export function PhotoMapApp() {
             else delete maps.current[name];
           }}
         />
+        {!isPhoto && active?.registration && mapPhotos[index].some((photo) =>
+          photo.id === active.id && photo.opacity[index] > 0
+        ) && (
+          <div className="pm-map-photo-label" role="status">
+            選択中の写真：{active.name}
+          </div>
+        )}
+        {isPhoto && active && !active.registration && (
+          <div className="pm-photo-registration-warning" role="status">
+            この写真は位置合わせ前です。道路・河川などの逆投影は、対応点を4組以上設定してから表示されます。
+          </div>
+        )}
+        {!isPhoto && name === 'A' && tab === 'gcps' && active?.registration && (
+          <div className="pm-alignment-opacity">
+            <label>
+              <span>選択写真の透過度 {Math.round((1 - active.opacity[0]) * 100)}%</span>
+              <input
+                aria-label="位置合わせ後の写真の透過度"
+                type="range"
+                min="0"
+                max="1"
+                step="0.01"
+                value={1 - active.opacity[0]}
+                onChange={(e) => {
+                  const opacity = [...active.opacity] as Photo['opacity'];
+                  opacity[0] = 1 - Number(e.target.value);
+                  updatePhoto({ ...active, opacity });
+                }}
+              />
+            </label>
+          </div>
+        )}
         {isPhoto && !active && (
           <div className="pm-empty">
             <div className="pm-empty-icon">▧</div>
@@ -640,7 +751,7 @@ export function PhotoMapApp() {
             <p className="pm-private">画像と作業データは端末内で処理します。</p>
           </div>
         )}
-        {isPhoto && <PhotoAttributions project={project} />}
+        {isPhoto && <PhotoAttributions project={project} photo={active} />}
         {localMode !== 'move' && (
           <div className="pm-local-mode" role="status">
             <span>
@@ -838,16 +949,30 @@ export function PhotoMapApp() {
                   <div className="pm-section-title">
                     写真 <span>{project.photos.length}枚 · 上ほど前面</span>
                   </div>
+                  <PhotoBatchControls
+                    photos={project.photos}
+                    onVisibility={(pane, visible) => change((p) => ({
+                      ...p,
+                      photos: p.photos.map((photo) => {
+                        const values = [...photo.visible] as Photo['visible'];
+                        values[pane] = visible;
+                        return { ...photo, visible: values };
+                      }),
+                    }))}
+                    onTransparency={(transparency) => change((p) => ({
+                      ...p,
+                      photos: p.photos.map((photo) => ({
+                        ...photo,
+                        opacity: [1 - transparency, 1 - transparency],
+                      })),
+                    }))}
+                  />
                   <small>⠿ をドラッグして重なり順を変更できます。</small>
                   <PhotoList
                     photos={project.photos}
                     activeId={project.activePhotoId}
                     pool={pool}
-                    onSelect={(photoId) => {
-                      change((p) => ({ ...p, activePhotoId: photoId }), false);
-                      setSelectedGcp(null);
-                      setTool('move');
-                    }}
+                    onSelect={choosePhoto}
                     onChange={updatePhoto}
                     onReorder={(photos) => change((p) => ({ ...p, photos }))}
                   />
@@ -858,7 +983,10 @@ export function PhotoMapApp() {
                       onChange={updatePhoto}
                       onDelete={() => setDialog('delete')}
                       onFit={fitPhoto}
-                      onRegister={() => setTool('gcp')}
+                      onRegister={() => {
+                        setTab('gcps');
+                        setTool('gcp');
+                      }}
                       onTool={(tool) => setTool(tool, 'photo')}
                     />
                   )}

@@ -27,6 +27,7 @@ import { gridToWorld, rasterGrid, worldFile } from './warp';
 import { validateProject } from './validation';
 import { historyReducer } from './history';
 import { drawingsGeoJson } from './archive';
+import { displayedPhotos, photoAtCoordinate } from './photoDisplay';
 
 const source: Point[] = [
   [0, 0],
@@ -148,6 +149,28 @@ describe('normalized homography', () => {
     expect(footprint(p)).toBeNull();
     p.crop = [10, 10, 100, 100];
     expect(footprint(p)).not.toBeNull();
+  });
+});
+describe('photo display', () => {
+  it('isolates the active photo for alignment and restores saved visibility afterward', () => {
+    const back = photo();
+    const front = { ...photo(), id: 'photo-2', visible: [false, true] as Photo['visible'] };
+    const photos = [back, front];
+    expect(displayedPhotos(photos, 0, front.id, true, null).map((p) => p.id)).toEqual([front.id]);
+    expect(displayedPhotos(photos, 1, front.id, true, null).map((p) => p.id)).toEqual([front.id]);
+    expect(displayedPhotos(photos, 0, front.id, false, null).map((p) => p.id)).toEqual([back.id]);
+    expect(front.visible).toEqual([false, true]);
+  });
+  it('temporarily brings the selected projection forward and finds its source photo', () => {
+    const back = photo();
+    const front = { ...photo(), id: 'photo-2' };
+    const photos = displayedPhotos([back, front], 0, back.id, false, null);
+    expect(photos.map((p) => p.id)).toEqual([front.id, back.id]);
+    const world = projectPoint(back.registration!.h, [50, 50])!;
+    expect(photoAtCoordinate(photos, 0, world)?.id).toBe(back.id);
+    back.masks = [[[40, 40], [60, 40], [60, 60], [40, 60]]];
+    expect(photoAtCoordinate(photos, 0, world)?.id).toBe(front.id);
+    expect(displayedPhotos([back, front], 0, back.id, false, front.id).map((p) => p.id)).toEqual([front.id]);
   });
 });
 describe('anchored drawings', () => {

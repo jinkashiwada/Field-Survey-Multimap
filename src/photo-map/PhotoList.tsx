@@ -4,6 +4,57 @@ import { hasDraft, type Photo } from './model';
 import { PhotoThumbnail } from './Panels';
 
 const DRAG_TYPE = 'application/x-photo-map-layer';
+export function PhotoBatchControls({
+  photos,
+  onVisibility,
+  onTransparency,
+}: {
+  photos: Photo[];
+  onVisibility: (pane: 0 | 1, visible: boolean) => void;
+  onTransparency: (transparency: number) => void;
+}) {
+  const values = photos.flatMap((photo) => photo.opacity.map((v) => 1 - v));
+  const transparency = values.length
+    ? values.reduce((sum, value) => sum + value, 0) / values.length
+    : 0;
+  const mixed = values.some((value) => Math.abs(value - transparency) > 0.005);
+  return (
+    <section className="pm-photo-batch" aria-label="写真の一括表示設定">
+      {([0, 1] as const).map((pane) => (
+        <div className="pm-photo-batch-row" key={pane}>
+          <strong>地図{pane === 0 ? 'A' : 'B'}</strong>
+          <button
+            disabled={!photos.length || photos.every((photo) => photo.visible[pane])}
+            onClick={() => onVisibility(pane, true)}
+            aria-label={`地図${pane === 0 ? 'A' : 'B'}の写真をすべてオン`}
+          >
+            すべてオン
+          </button>
+          <button
+            disabled={!photos.length || photos.every((photo) => !photo.visible[pane])}
+            onClick={() => onVisibility(pane, false)}
+            aria-label={`地図${pane === 0 ? 'A' : 'B'}の写真をすべてオフ`}
+          >
+            すべてオフ
+          </button>
+        </div>
+      ))}
+      <label className="pm-photo-batch-opacity">
+        <span>全写真の透過度 {mixed ? '個別設定あり' : `${Math.round(transparency * 100)}%`}</span>
+        <input
+          type="range"
+          min="0"
+          max="1"
+          step="0.01"
+          value={transparency}
+          disabled={!photos.length}
+          aria-label="全写真の透過度を一括変更"
+          onChange={(e) => onTransparency(Number(e.target.value))}
+        />
+      </label>
+    </section>
+  );
+}
 export function PhotoList({
   photos,
   activeId,
@@ -40,7 +91,7 @@ export function PhotoList({
           key={photo.id}
           data-photo-id={photo.id}
           aria-label={photo.name}
-          className={`pm-photo-card ${photo.id === activeId ? 'is-selected' : ''} ${drop?.id === photo.id ? (drop.after ? 'pm-drop-after' : 'pm-drop-before') : ''}`}
+          className={`pm-photo-card ${photo.registration ? hasDraft(photo) ? 'is-draft' : 'is-registered' : 'is-unregistered'} ${photo.id === activeId ? 'is-selected' : ''} ${drop?.id === photo.id ? (drop.after ? 'pm-drop-after' : 'pm-drop-before') : ''}`}
           onDragOver={(e) => {
             if (!dragged.current || !e.dataTransfer.types.includes(DRAG_TYPE))
               return;
@@ -102,7 +153,7 @@ export function PhotoList({
               <PhotoThumbnail photo={photo} pool={pool} />
               <span>
                 <strong>{photo.name}</strong>
-                <small>
+                <small className="pm-registration-badge">
                   {photo.registration
                     ? hasDraft(photo)
                       ? '未反映の変更'

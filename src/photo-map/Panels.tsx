@@ -651,7 +651,7 @@ export function LayerPanel({
     </>
   );
 }
-export function PhotoAttributions({ project }: { project: Project }) {
+export function PhotoAttributions({ project, photo }: { project: Project; photo?: Photo }) {
   const ids = [
     ...(project.inverse.baseLayerId ? [project.inverse.baseLayerId] : []),
     ...project.inverse.overlayIds,
@@ -659,6 +659,9 @@ export function PhotoAttributions({ project }: { project: Project }) {
   const layers = ids.map((id) => layerById.get(id)!);
   return (
     <div className="pm-attribution">
+      {photo && !photo.registration && (
+        <span className="pm-inverse-pending">位置合わせ前：道路・河川などの逆投影には対応点4組以上が必要です。 </span>
+      )}
       {layers.length ? (
         <>
           逆投影・加工：

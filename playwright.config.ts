@@ -1,7 +1,12 @@
 import { defineConfig, devices } from '@playwright/test';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 export default defineConfig({
   testDir: './e2e',
+  // Playwright clears outputDir before each run. Keep it outside the synced
+  // workspace so a user's project ZIP in test-results is never removed.
+  outputDir: join(tmpdir(), 'field-survey-multimap-playwright-results'),
   fullyParallel: false,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 2 : 0,
