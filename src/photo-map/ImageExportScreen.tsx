@@ -56,8 +56,8 @@ export function ImageExportScreen({ project, pool, sourceView, onClose }: {
 }) {
   const [baseId, setBaseId] = useState(project.panes[0].baseLayerId);
   const [overlays, setOverlays] = useState([...project.panes[0].overlayLayerIds]);
-  const [overlayOpacity, setOverlayOpacity] = useState(project.panes[0].overlayOpacity ?? 1);
-  const [photoOpacity, setPhotoOpacity] = useState(.7);
+  const [overlayOpacity, setOverlayOpacity] = useState(.2);
+  const [photoOpacity, setPhotoOpacity] = useState(1);
   const [selectedPhotos, setSelectedPhotos] = useState(() => project.photos.filter((photo) =>
     (photo.visible[0] || photo.visible[1]) && photo.registration && footprint(photo)).map((photo) => photo.id));
   const [photoOrder, setPhotoOrder] = useState(() => project.photos.map((photo) => photo.id));

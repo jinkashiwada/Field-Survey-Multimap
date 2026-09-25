@@ -281,6 +281,8 @@ test('同一画角の比較画像と斜め写真ペアを画像専用ZIPに出�
   project.panes[1].overlayLayerIds = [];
   await openFixture(page, project);
   await page.getByRole('button', { name: 'オルソ画像エクスポート' }).click();
+  await expect(page.locator('.pm-export-settings input[type="range"]').first()).toHaveValue('0.2');
+  await expect(page.locator('.pm-export-settings input[type="range"]').nth(1)).toHaveValue('1');
   await page.getByLabel('画像の長辺（px）').fill('256');
   await page.setViewportSize({ width: 1536, height: 864 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth && document.documentElement.scrollHeight <= innerHeight)).toBe(true);
